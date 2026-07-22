@@ -1,0 +1,10 @@
+{
+  "name": "lian-qa-plugin",
+  "version": "0.1.0",
+  "description": "Personal Claude Code plugin — commands added incrementally.",
+  "author": {
+    "name": "lian.trinh",
+    "email": "loctrinh97@gmail.com"
+  },
+  "license": "MIT"
+}

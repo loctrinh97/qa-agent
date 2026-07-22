@@ -1,0 +1,23 @@
+{
+  "name": "lian-plugins",
+  "owner": {
+    "name": "lian.trinh",
+    "email": "loctrinh97@gmail.com"
+  },
+  "metadata": {
+    "description": "Personal marketplace for lian.trinh's Claude Code plugins"
+  },
+  "plugins": [
+    {
+      "name": "lian-qa-plugin",
+      "source": "./",
+      "description": "Personal Claude Code plugin — commands added incrementally.",
+      "version": "0.1.0",
+      "author": {
+        "name": "lian.trinh",
+        "email": "loctrinh97@gmail.com"
+      },
+      "license": "MIT"
+    }
+  ]
+}
