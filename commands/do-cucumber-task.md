@@ -254,9 +254,11 @@ quoted text is UI copy only, verified or explicitly marked unverified.
 
 ```bash
 CLASS=$(echo "$MODULE" | awk -F'-' '{for(i=1;i<=NF;i++){$i=toupper(substr($i,1,1)) substr($i,2)}}1' OFS='')
+# TypeScript class names can't start with a digit — prefix with "M" (for "Module") if they do
+[[ "$CLASS" =~ ^[0-9] ]] && CLASS="M${CLASS}"
 echo "CLASS=$CLASS"
 ```
-(e.g. `user-login` → `UserLogin`)
+(e.g. `user-login` → `UserLogin`; `2fa-login` → `M2faLogin`)
 
 ## Re-read the grounding source (no re-fetch, no new live session)
 
