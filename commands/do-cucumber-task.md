@@ -249,6 +249,33 @@ place).
 Never write raw selectors (CSS/XPath/testid strings) into any step —
 quoted text is UI copy only, verified or explicitly marked unverified.
 
+## Determine the class name
+
+```bash
+CLASS=$(echo "$MODULE" | awk -F'-' '{for(i=1;i<=NF;i++){$i=toupper(substr($i,1,1)) substr($i,2)}}1' OFS='')
+echo "CLASS=$CLASS"
+```
+(e.g. `user-login` → `UserLogin`)
+
+## Re-read the grounding source (no re-fetch, no new live session)
+
+Reuse exactly what "Resolve the grounding/selector source" and "Verify step
+wording" already resolved above in this same run — never re-open a
+browser/Appium session, never re-ask the user, never re-fetch scanned docs
+from scratch.
+
+- `frontend`/`mobile`, `SELECTOR_SOURCE=scanned` → the already-read content
+  of `.claude/docs/frontend/components.md` or `.claude/docs/mobile/screens.md`.
+- `frontend`/`mobile`, `SELECTOR_SOURCE=live` → the live Playwright/Appium
+  snapshot already captured during "Verify step wording" — reuse it. If
+  that session is no longer available (e.g. it timed out before this
+  point), do not reopen it — treat every element that needed it as
+  unverified for the sections below.
+- `backend` → `.claude/docs/backend/api-contracts.md` if present, else
+  `specs/<NNN>-<MODULE>/spec.md`'s Description/ACs.
+- `SELECTOR_SOURCE=none` (or no source available for backend either) →
+  every element/endpoint in this module is unverified.
+
 ## Report
 
 ```
