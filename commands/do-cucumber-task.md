@@ -293,6 +293,49 @@ anything new, leaves existing ones untouched) rather than overwriting it.
 If empty/missing, use the default conventions below with no prior style to
 match.
 
+## Generate the locator/endpoint file
+
+Skip this section entirely for `backend` — HTTP method/path stay inline in
+the API client (see "Generate the page object / screen object / API
+client" below); there is no separate locator file for backend.
+
+**`frontend`** — write (or merge new entries into) `locators/<MODULE>.locators.ts`:
+
+```typescript
+import { Page } from '@playwright/test';
+
+export const get<CLASS>Locators = (page: Page) => ({
+  <elementName>: page.<real-locator-call>,
+  // ^ grounded — built from the resolved scanned-docs entry or live snapshot
+  <otherElementName>: undefined as any, // TODO: unverified — <element description>
+});
+```
+
+Selector priority order (already established for this plugin): `getByRole`
+→ `getByLabel` → `getByTestId` → `getByText` → CSS (last resort). One entry
+per UI element referenced by a step in `features/<MODULE>.feature`.
+Grounded elements get a real locator call; ungrounded elements get a
+`// TODO: unverified — <description>` comment instead — never invent a
+plausible-looking selector.
+
+**`mobile`** — write (or merge new entries into) `locators/mobile/<MODULE>.locators.ts`:
+
+```typescript
+export const get<CLASS>Locators = () => ({
+  <elementName>: '~<real-accessibility-id>',
+  // ^ grounded — Android/iOS accessibility id from scanned docs or live inspection
+  <otherElementName>: '', // TODO: unverified — <element description>
+});
+```
+
+Android/iOS priority order (already established for this plugin):
+`accessibility id` → `UiSelector.text()`/`NSPredicate` → `resourceId`/class
+chain → `description()` → XPath (last resort).
+
+If a locators file already exists for this module, add new entries for any
+new element referenced by the feature file; leave existing entries
+untouched.
+
 ## Report
 
 ```
