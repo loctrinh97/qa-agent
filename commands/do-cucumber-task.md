@@ -336,6 +336,97 @@ If a locators file already exists for this module, add new entries for any
 new element referenced by the feature file; leave existing entries
 untouched.
 
+## Generate the page object / screen object / API client
+
+**`frontend`** — write (or merge new methods into) `pages/<CLASS>Page.ts`:
+
+```typescript
+import { Page, Locator, expect } from '@playwright/test';
+import { BasePage } from './BasePage';
+import { get<CLASS>Locators } from '../locators/<MODULE>.locators';
+
+export class <CLASS>Page extends BasePage {
+  readonly <elementName>: Locator;
+
+  constructor(page: Page) {
+    super(page);
+    const loc = get<CLASS>Locators(page);
+    this.<elementName> = loc.<elementName>;
+  }
+
+  async <actionMethodName>(/* params from the Gherkin step(s) */): Promise<void> {
+    // implementation using this.<elementName>
+  }
+
+  async expect<AssertionName>(/* params */): Promise<void> {
+    // assertion using this.<elementName> and expect()
+  }
+}
+```
+
+Rules:
+- Extend `BasePage` from `pages/BasePage.ts`.
+- Import locators from `locators/<MODULE>.locators.ts` — never inline a raw
+  selector directly in the page object.
+- Methods represent a semantic action or assertion, grouping the Gherkin
+  step(s) that describe it — NOT a rigid one-method-per-step-line mapping.
+  (e.g. a single `login(email, password)` method may implement "When I
+  enter my email" + "And I enter my password" + "And I click Sign In" if
+  the feature phrases login across separate steps.)
+- All `Locator` properties `readonly`, typed `Locator`.
+- If the page object already exists for this module, add new methods for
+  any new Gherkin step; leave existing methods untouched.
+
+**`mobile`** — write (or merge new methods into) `pages/mobile/<CLASS>Screen.ts`:
+
+```typescript
+import { get<CLASS>Locators } from '../../locators/mobile/<MODULE>.locators';
+
+export class <CLASS>Screen {
+  private readonly locators = get<CLASS>Locators();
+
+  async <actionMethodName>(/* params */): Promise<void> {
+    // implementation using $(this.locators.<elementName>)
+  }
+
+  async expect<AssertionName>(/* params */): Promise<void> {
+    // assertion using expect($(this.locators.<elementName>))
+  }
+}
+```
+
+Same grouping rule as frontend — one method per semantic action/assertion,
+not per literal step line. No `page` fixture; element access is
+WebdriverIO's `$('~...')` built from the locator factory above. If the
+screen object already exists for this module, add new methods for any new
+step; leave existing methods untouched.
+
+**`backend`** — write (or merge new methods into) `api-clients/<CLASS>Client.ts`:
+
+```typescript
+import { APIRequestContext, APIResponse } from '@playwright/test';
+
+export class <CLASS>Client {
+  constructor(private readonly request: APIRequestContext) {}
+
+  async <endpointMethodName>(/* params from the request shape */): Promise<APIResponse> {
+    return this.request.<get|post|put|delete>('<real-path-from-api-contracts.md>', {
+      data: { /* real request shape, if any */ },
+    });
+  }
+}
+```
+
+Unlike UI actions, one endpoint call is already a natural 1:1 unit with a
+Gherkin step — one method per endpoint referenced by the feature's steps.
+Method name/HTTP verb/path/request shape come from the grounded source
+(`.claude/docs/backend/api-contracts.md` or `spec.md`); when no concrete
+endpoint shape is available for a referenced call, write the method with
+`// TODO: endpoint contract not found — verify against real backend code`
+instead of inventing a plausible-looking path. If the client already
+exists for this module, add new methods for any new endpoint; leave
+existing methods untouched.
+
 ## Report
 
 ```
