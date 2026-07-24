@@ -11,8 +11,8 @@
     {
       "name": "lian-qa-plugin",
       "source": "./",
-      "description": "Personal Claude Code plugin — commands added incrementally.",
-      "version": "0.1.0",
+      "description": "AI-driven QA automation plugin — spec-first workflow: scaffold or scan a project (/init), write specs from Notion/Confluence/Jira or CucumberStudio (/spec, /do-cucumber-task), scan app source for real locators and business logic (/scan-source), manage plugin config (/rename, /add-mcp). Phase 1 of a larger test-generation pipeline.",
+      "version": "0.2.0",
       "author": {
         "name": "lian.trinh",
         "email": "loctrinh97@gmail.com"
