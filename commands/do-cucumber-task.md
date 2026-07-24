@@ -276,6 +276,23 @@ from scratch.
 - `SELECTOR_SOURCE=none` (or no source available for backend either) →
   every element/endpoint in this module is unverified.
 
+## Scan existing project style
+
+```bash
+case "$PLATFORM" in
+  frontend) ls pages/*.ts locators/*.ts 2>/dev/null ;;
+  mobile)   ls pages/mobile/*.ts locators/mobile/*.ts 2>/dev/null ;;
+  backend)  ls api-clients/*.ts 2>/dev/null ;;
+esac
+```
+
+If a file already exists for this exact module (`pages/<CLASS>Page.ts`,
+`pages/mobile/<CLASS>Screen.ts`, or `api-clients/<CLASS>Client.ts`), read
+it now — the generation below merges into it (adds new methods/entries for
+anything new, leaves existing ones untouched) rather than overwriting it.
+If empty/missing, use the default conventions below with no prior style to
+match.
+
 ## Report
 
 ```
