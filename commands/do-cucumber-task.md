@@ -1,14 +1,15 @@
 ---
 name: do-cucumber-task
-description: Fetch one CucumberStudio scenario, ground it against this workspace's spec.md/scanned-source knowledge, verify its wording against real selectors when available, write/update specs/NNN-<module>/spec.md, and generate features/<module>.feature. Sub-project 1 of 5 — does not generate page objects, step definitions, or run the test yet.
+description: Fetch one CucumberStudio scenario, ground it against this workspace's spec.md/scanned-source knowledge, verify its wording against real selectors when available, write/update specs/NNN-<module>/spec.md, generate features/<module>.feature, and generate the grounded page object/screen object/API client (plus locators, for frontend/mobile) underneath it. Does not yet generate step definitions or run the test.
 argument-hint: "<cucumberstudio-url>"
 ---
 
 EXECUTE IMMEDIATELY.
 
 This converts one CucumberStudio scenario into a grounded spec.md + .feature
-file. It does NOT generate page objects, step definitions, or run any
-test — those are future phases of this plugin.
+file, plus the page object/screen object/API client (and locators, for
+frontend/mobile) underneath it. It does NOT generate step definitions or
+run any test — those are future phases of this plugin.
 
 ## Parse the CucumberStudio URL
 
@@ -435,19 +436,25 @@ Feature: features/<MODULE>.feature
 Platform: <PLATFORM>
 Selector source: <scanned docs | live Playwright | live Appium | unverified | not applicable (backend)>
 Wording discrepancies fixed: <list, or "none">
+Page object / Screen / API client: <path>
+Locators: <path, or "not applicable (backend)">
+Selectors/endpoints grounded: <n>/<total>
+TODO stubs remaining: <n> (method/entry names listed, or "none")
 
-Not generated yet (future phases): page objects/locators, step definitions,
-test execution.
+Not generated yet (future phases): step definitions, test execution.
 ```
 
 ## Rules
 
-- Do NOT generate page objects, locators, or step definitions — those are
-  future phases of this plugin.
-- Do NOT run any test.
+- Do NOT generate step definitions or run any test — those are future
+  phases of this plugin.
 - Do NOT run `git` commands — this command only reads/writes files and
   calls MCP tools.
-- Never guess a module name, platform, or selector wording — ask when
-  ambiguous, mark "unverified" when no source is available.
+- Never guess a module name, platform, selector wording, real selector, or
+  real endpoint — ask when ambiguous, mark "unverified"/TODO-stub when no
+  grounded source is available.
 - Never invent scenario steps not present in the fetched CucumberStudio
   content.
+- Never overwrite an existing page object / screen object / API client /
+  locators file wholesale — merge in new methods/entries, leave existing
+  ones untouched.
