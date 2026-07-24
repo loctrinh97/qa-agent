@@ -119,6 +119,7 @@ Will create (only if missing):
   · .gitignore
   · pages/BasePage.ts
   · qa-run-log.tsv        (empty, header only)
+  · CLAUDE.md             (governance: no automated git commits — see below)
 
 Then run: npm install   <(skipped if --no-install)>
 
@@ -299,6 +300,22 @@ timestamp	module	platform	action	status	notes
 (single header line, no trailing blank scenarios — real rows get appended by
 later phases)
 
+**`CLAUDE.md`:**
+```markdown
+# <NAME> — QA Automation Workspace
+
+This workspace was scaffolded by `/init new` (lian-qa-plugin).
+
+## Governance
+
+**No automated git operations.** No command in this workspace — nor any
+Claude Code session working in it — should run `git add`, `git commit`,
+`git push`, or any other git command that mutates history, on its own
+initiative. Generate/edit files, then stop and let the human review with
+`git status` / `git diff` and commit themselves, on their own terms and
+timing.
+```
+
 ### A6 — Install and report
 
 ```bash
@@ -388,6 +405,13 @@ it (Write tool).
   env blocks; list only ones you actually found)
 - Setup instructions (install command + any prerequisite steps you found —
   e.g. `npx playwright install` if Playwright is a dependency)
+- A `## Governance` section with this rule, verbatim, regardless of what
+  else was found in the repo: "**No automated git operations.** No command
+  in this project — nor any Claude Code session working in it — should run
+  `git add`, `git commit`, `git push`, or any other git command that
+  mutates history, on its own initiative. Generate/edit files, then stop
+  and let the human review with `git status` / `git diff` and commit
+  themselves, on their own terms and timing."
 
 **`.claude/docs/architecture.md`** — layers present (test runner, page/screen
 object layer, fixtures, helpers, reporter, etc. — only the ones that actually
