@@ -1,14 +1,15 @@
 ---
 name: do-cucumber-task
-description: Fetch one CucumberStudio scenario, ground it against this workspace's spec.md/scanned-source knowledge, verify its wording against real selectors when available, write/update specs/NNN-<module>/spec.md, and generate features/<module>.feature. Sub-project 1 of 5 — does not generate page objects, step definitions, or run the test yet.
+description: Fetch one CucumberStudio scenario, ground it against this workspace's spec.md/scanned-source knowledge, verify its wording against real selectors when available, write/update specs/NNN-<module>/spec.md, generate features/<module>.feature, and generate the grounded page object/screen object/API client (plus locators, for frontend/mobile) underneath it. Does not yet generate step definitions or run the test.
 argument-hint: "<cucumberstudio-url>"
 ---
 
 EXECUTE IMMEDIATELY.
 
 This converts one CucumberStudio scenario into a grounded spec.md + .feature
-file. It does NOT generate page objects, step definitions, or run any
-test — those are future phases of this plugin.
+file, plus the page object/screen object/API client (and locators, for
+frontend/mobile) underneath it. It does NOT generate step definitions or
+run any test — those are future phases of this plugin.
 
 ## Parse the CucumberStudio URL
 
@@ -249,6 +250,186 @@ place).
 Never write raw selectors (CSS/XPath/testid strings) into any step —
 quoted text is UI copy only, verified or explicitly marked unverified.
 
+## Determine the class name
+
+```bash
+CLASS=$(echo "$MODULE" | awk -F'-' '{for(i=1;i<=NF;i++){$i=toupper(substr($i,1,1)) substr($i,2)}}1' OFS='')
+# TypeScript class names can't start with a digit — prefix with "M" (for "Module") if they do
+[[ "$CLASS" =~ ^[0-9] ]] && CLASS="M${CLASS}"
+echo "CLASS=$CLASS"
+```
+(e.g. `user-login` → `UserLogin`; `2fa-login` → `M2faLogin`)
+
+## Re-read the grounding source (no re-fetch, no new live session)
+
+Reuse exactly what "Resolve the grounding/selector source" and "Verify step
+wording" already resolved above in this same run — never re-open a
+browser/Appium session, never re-ask the user, never re-fetch scanned docs
+from scratch.
+
+- `frontend`/`mobile`, `SELECTOR_SOURCE=scanned` → the already-read content
+  of `.claude/docs/frontend/components.md` or `.claude/docs/mobile/screens.md`.
+- `frontend`/`mobile`, `SELECTOR_SOURCE=live` → the live Playwright/Appium
+  snapshot already captured during "Verify step wording" — reuse it. If
+  that session is no longer available (e.g. it timed out before this
+  point), do not reopen it — treat every element that needed it as
+  unverified for the sections below.
+- `backend` → `.claude/docs/backend/api-contracts.md` if present, else
+  `specs/<NNN>-<MODULE>/spec.md`'s Description/ACs.
+- `SELECTOR_SOURCE=none` (or no source available for backend either) →
+  every element/endpoint in this module is unverified.
+
+## Scan existing project style
+
+```bash
+case "$PLATFORM" in
+  frontend) ls pages/*.ts locators/*.ts 2>/dev/null ;;
+  mobile)   ls pages/mobile/*.ts locators/mobile/*.ts 2>/dev/null ;;
+  backend)  ls api-clients/*.ts 2>/dev/null ;;
+esac
+```
+
+If a file already exists for this exact module (`pages/<CLASS>Page.ts`,
+`pages/mobile/<CLASS>Screen.ts`, or `api-clients/<CLASS>Client.ts`), read
+it now — the generation below merges into it (adds new methods/entries for
+anything new, leaves existing ones untouched) rather than overwriting it.
+If empty/missing, use the default conventions below with no prior style to
+match.
+
+## Generate the locator/endpoint file
+
+Skip this section entirely for `backend` — HTTP method/path stay inline in
+the API client (see "Generate the page object / screen object / API
+client" below); there is no separate locator file for backend.
+
+**`frontend`** — write (or merge new entries into) `locators/<MODULE>.locators.ts`:
+
+```typescript
+import { Page } from '@playwright/test';
+
+export const get<CLASS>Locators = (page: Page) => ({
+  <elementName>: page.<real-locator-call>,
+  // ^ grounded — built from the resolved scanned-docs entry or live snapshot
+  <otherElementName>: undefined as any, // TODO: unverified — <element description>
+});
+```
+
+Selector priority order (already established for this plugin): `getByRole`
+→ `getByLabel` → `getByTestId` → `getByText` → CSS (last resort). One entry
+per UI element referenced by a step in `features/<MODULE>.feature`.
+Grounded elements get a real locator call; ungrounded elements get a
+`// TODO: unverified — <description>` comment instead — never invent a
+plausible-looking selector.
+
+**`mobile`** — write (or merge new entries into) `locators/mobile/<MODULE>.locators.ts`:
+
+```typescript
+export const get<CLASS>Locators = () => ({
+  <elementName>: '~<real-accessibility-id>',
+  // ^ grounded — Android/iOS accessibility id from scanned docs or live inspection
+  <otherElementName>: '', // TODO: unverified — <element description>
+});
+```
+
+Android/iOS priority order (already established for this plugin):
+`accessibility id` → `UiSelector.text()`/`NSPredicate` → `resourceId`/class
+chain → `description()` → XPath (last resort).
+
+If a locators file already exists for this module, add new entries for any
+new element referenced by the feature file; leave existing entries
+untouched.
+
+## Generate the page object / screen object / API client
+
+**`frontend`** — write (or merge new methods into) `pages/<CLASS>Page.ts`:
+
+```typescript
+import { Page, Locator, expect } from '@playwright/test';
+import { BasePage } from './BasePage';
+import { get<CLASS>Locators } from '../locators/<MODULE>.locators';
+
+export class <CLASS>Page extends BasePage {
+  readonly <elementName>: Locator;
+
+  constructor(page: Page) {
+    super(page);
+    const loc = get<CLASS>Locators(page);
+    this.<elementName> = loc.<elementName>;
+  }
+
+  async <actionMethodName>(/* params from the Gherkin step(s) */): Promise<void> {
+    // implementation using this.<elementName>
+  }
+
+  async expect<AssertionName>(/* params */): Promise<void> {
+    // assertion using this.<elementName> and expect()
+  }
+}
+```
+
+Rules:
+- Extend `BasePage` from `pages/BasePage.ts`.
+- Import locators from `locators/<MODULE>.locators.ts` — never inline a raw
+  selector directly in the page object.
+- Methods represent a semantic action or assertion, grouping the Gherkin
+  step(s) that describe it — NOT a rigid one-method-per-step-line mapping.
+  (e.g. a single `login(email, password)` method may implement "When I
+  enter my email" + "And I enter my password" + "And I click Sign In" if
+  the feature phrases login across separate steps.)
+- All `Locator` properties `readonly`, typed `Locator`.
+- If the page object already exists for this module, add new methods for
+  any new Gherkin step; leave existing methods untouched.
+
+**`mobile`** — write (or merge new methods into) `pages/mobile/<CLASS>Screen.ts`:
+
+```typescript
+import { get<CLASS>Locators } from '../../locators/mobile/<MODULE>.locators';
+
+export class <CLASS>Screen {
+  private readonly locators = get<CLASS>Locators();
+
+  async <actionMethodName>(/* params */): Promise<void> {
+    // implementation using $(this.locators.<elementName>)
+  }
+
+  async expect<AssertionName>(/* params */): Promise<void> {
+    // assertion using expect($(this.locators.<elementName>))
+  }
+}
+```
+
+Same grouping rule as frontend — one method per semantic action/assertion,
+not per literal step line. No `page` fixture; element access is
+WebdriverIO's `$('~...')` built from the locator factory above. If the
+screen object already exists for this module, add new methods for any new
+step; leave existing methods untouched.
+
+**`backend`** — write (or merge new methods into) `api-clients/<CLASS>Client.ts`:
+
+```typescript
+import { APIRequestContext, APIResponse } from '@playwright/test';
+
+export class <CLASS>Client {
+  constructor(private readonly request: APIRequestContext) {}
+
+  async <endpointMethodName>(/* params from the request shape */): Promise<APIResponse> {
+    return this.request.<get|post|put|delete>('<real-path-from-api-contracts.md>', {
+      data: { /* real request shape, if any */ },
+    });
+  }
+}
+```
+
+Unlike UI actions, one endpoint call is already a natural 1:1 unit with a
+Gherkin step — one method per endpoint referenced by the feature's steps.
+Method name/HTTP verb/path/request shape come from the grounded source
+(`.claude/docs/backend/api-contracts.md` or `spec.md`); when no concrete
+endpoint shape is available for a referenced call, write the method with
+`// TODO: endpoint contract not found — verify against real backend code`
+instead of inventing a plausible-looking path. If the client already
+exists for this module, add new methods for any new endpoint; leave
+existing methods untouched.
+
 ## Report
 
 ```
@@ -257,19 +438,25 @@ Feature: features/<MODULE>.feature
 Platform: <PLATFORM>
 Selector source: <scanned docs | live Playwright | live Appium | unverified | not applicable (backend)>
 Wording discrepancies fixed: <list, or "none">
+Page object / Screen / API client: <path>
+Locators: <path, or "not applicable (backend)">
+Selectors/endpoints grounded: <n>/<total>
+TODO stubs remaining: <n> (method/entry names listed, or "none")
 
-Not generated yet (future phases): page objects/locators, step definitions,
-test execution.
+Not generated yet (future phases): step definitions, test execution.
 ```
 
 ## Rules
 
-- Do NOT generate page objects, locators, or step definitions — those are
-  future phases of this plugin.
-- Do NOT run any test.
+- Do NOT generate step definitions or run any test — those are future
+  phases of this plugin.
 - Do NOT run `git` commands — this command only reads/writes files and
   calls MCP tools.
-- Never guess a module name, platform, or selector wording — ask when
-  ambiguous, mark "unverified" when no source is available.
+- Never guess a module name, platform, selector wording, real selector, or
+  real endpoint — ask when ambiguous, mark "unverified"/TODO-stub when no
+  grounded source is available.
 - Never invent scenario steps not present in the fetched CucumberStudio
   content.
+- Never overwrite an existing page object / screen object / API client /
+  locators file wholesale — merge in new methods/entries, leave existing
+  ones untouched.
