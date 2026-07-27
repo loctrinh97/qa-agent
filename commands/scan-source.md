@@ -52,10 +52,15 @@ grep -n "^## .* — " .claude/CLAUDE.md 2>/dev/null
 ```
 
 A normalized match found → print `Rescanning <path> (last scanned
-<date>)...` — informational only, every signal check below still runs in
-full, since a rescan's whole purpose is to catch changes (including a
-changed type or platform). No match → proceed silently as a fresh scan
-(no message, unchanged from before).
+<date>)...`, unless `$ARGUMENTS` was empty and this path came from the
+no-argument batch list — that case was already announced by "Parse
+arguments," so skip the print here to avoid announcing the same rescan
+twice; if the user explicitly supplied this exact path as an argument,
+still print it even though it also matches. Either way, this message is
+informational only — every signal check below still runs in full, since a
+rescan's whole purpose is to catch changes (including a changed type or
+platform). No match → proceed silently as a fresh scan (no message,
+unchanged from before).
 
 For the current path, check for these signals — collect **every** signal
 found, not just the first match:
