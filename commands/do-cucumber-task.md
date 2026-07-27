@@ -1,6 +1,6 @@
 ---
 name: do-cucumber-task
-description: Fetch one CucumberStudio scenario, ground it against this workspace's spec.md/scanned-source knowledge, verify its wording against real selectors when available, write/update specs/NNN-<module>/spec.md, generate features/<module>.feature, and generate the grounded page object/screen object/API client (plus locators, for frontend/mobile) underneath it. Does not yet generate step definitions or run the test.
+description: Fetch one CucumberStudio scenario, ground it against this workspace's spec.md/scanned-source knowledge, verify its wording against real selectors when available, write/update specs/NNN-<module>/spec.md, generate `<module>.feature` at the project's real feature-file location, and generate the grounded page object/screen object/API client (plus locators, for frontend/mobile) underneath it. Does not yet generate step definitions or run the test.
 argument-hint: "<cucumberstudio-url>"
 ---
 
@@ -96,6 +96,69 @@ ls .claude/docs/ 2>/dev/null
   Wait for the reply — never guess.
 
 Set `PLATFORM` from whichever branch applied.
+
+## Discover the test project's real conventions
+
+Before writing any file, determine what test-running setup this project
+actually has — never assume this plugin's own default scaffold is what's
+in place.
+
+### Step 1 — check for `/init existing`'s docs first
+
+```bash
+ls .claude/docs/coding-conventions.md .claude/docs/structure.md \
+   .claude/docs/test-case-template.md .claude/docs/selectors-locators.md \
+   .claude/docs/patterns.md 2>/dev/null
+```
+
+Any of these exist → read them. Extract: the language/framework in use,
+the real feature-file directory, the real page/screen-object directory and
+file extension, the real locator directory and format (a TS/JS factory
+function vs. a JSON file vs. something else), and the real step-definition
+directory (recorded for a future phase — not acted on by this command).
+Then, using the directory/format described, open 1-2 real files at those
+paths (one `.feature` file, one page/screen object, one locator file, if
+each exists) to confirm the exact format before generating anything — the
+docs describe the convention, but the real file is the source of truth if
+they disagree. Skip Step 2 entirely and go to Step 3.
+
+### Step 2 — direct repo inspection (only if Step 1 found nothing)
+
+```bash
+cat package.json 2>/dev/null | grep -A5 '"scripts"'
+cat package.json 2>/dev/null | grep -iE 'cucumber|wdio|playwright|webdriverio'
+ls wdio.conf.js wdio.conf.ts cucumber.js .cucumberrc playwright.config.ts 2>/dev/null
+find . -maxdepth 4 -name "*.feature" -not -path "*/node_modules/*" 2>/dev/null
+find . -maxdepth 4 -type d \( -iname "steps" -o -iname "step-definitions" \) -not -path "*/node_modules/*" 2>/dev/null
+find . -maxdepth 4 -type d \( -iname "pages" -o -iname "screens" \) -not -path "*/node_modules/*" 2>/dev/null
+find . -maxdepth 4 -type d -iname "locators" -not -path "*/node_modules/*" 2>/dev/null
+```
+
+Any signal found (a real `.feature` file, a real page/screen/locator
+directory, a recognizable test script/dependency) → read 1-2 real files at
+the discovered paths (one `.feature` file, one page/screen object, one
+locator file, if each exists) to ground the exact language, naming, and
+format before generating anything.
+
+### Step 3 — set the convention variables
+
+- Steps 1-2 both found nothing → `CONVENTION=default`. Use this plugin's
+  own scaffold conventions: `FEATURE_DIR=features`,
+  `PAGE_DIR=pages` (`pages/mobile` for mobile, `api-clients` for backend),
+  `PAGE_EXT=ts`, `LOCATOR_DIR=locators` (`locators/mobile` for mobile),
+  `LOCATOR_FORMAT=ts-factory`. This is the `/init new` greenfield case —
+  behavior is unchanged from before this fix.
+- Step 1 or 2 found a real signal → `CONVENTION=discovered`. Set
+  `FEATURE_DIR`, `PAGE_DIR`, `PAGE_EXT`, `LOCATOR_DIR`, `LOCATOR_FORMAT`
+  from what was actually read. If only some of these were evidenced (e.g.
+  a real feature directory was found but no locator file/directory
+  anywhere), best-effort fill the ungrounded piece with the closest
+  default shape for the discovered language (e.g. a JS project with no
+  locator convention found → a plain exported JS object, not a TS factory
+  function) — do not stop to ask the user. This is the one place in this
+  command that infers rather than asking; it does not extend to selector
+  wording, real selectors, real endpoints, or business content, which are
+  still never guessed.
 
 ## Resolve the grounding/selector source
 
@@ -220,7 +283,8 @@ step), re-score once, then proceed regardless.
 
 ## Generate the feature file
 
-Write `features/<MODULE>.feature`:
+Write `$FEATURE_DIR/<MODULE>.feature` (using `$FEATURE_DIR` from "Discover
+the test project's real conventions" above):
 
 ```gherkin
 # Generated: <date> | Source: CucumberStudio — <cucumberstudio-url>
@@ -279,30 +343,66 @@ from scratch.
 - `SELECTOR_SOURCE=none` (or no source available for backend either) →
   every element/endpoint in this module is unverified.
 
-## Scan existing project style
+## Check for an existing file for this module
 
 ```bash
 case "$PLATFORM" in
-  frontend) ls pages/*.ts locators/*.ts 2>/dev/null ;;
-  mobile)   ls pages/mobile/*.ts locators/mobile/*.ts 2>/dev/null ;;
-  backend)  ls api-clients/*.ts 2>/dev/null ;;
+  frontend|mobile) ls "$PAGE_DIR" "$LOCATOR_DIR" 2>/dev/null | grep -i "$CLASS" ;;
+  backend)         ls "$PAGE_DIR" 2>/dev/null | grep -i "$CLASS" ;;
 esac
 ```
 
-If a file already exists for this exact module (`pages/<CLASS>Page.ts`,
-`pages/mobile/<CLASS>Screen.ts`, or `api-clients/<CLASS>Client.ts`), read
-it now — the generation below merges into it (adds new methods/entries for
-anything new, leaves existing ones untouched) rather than overwriting it.
-If empty/missing, use the default conventions below with no prior style to
-match.
+`$PAGE_DIR` and `$LOCATOR_DIR` come from "Discover the test project's real
+conventions" above — this check runs against the REAL discovered paths,
+not a hardcoded default, so it correctly finds an existing file whether
+this project uses this plugin's own scaffold or a completely different
+one.
+
+If a match is found for this exact module, read that file now — the
+generation below merges into it (adds new methods/entries for anything
+new, leaves existing ones untouched) rather than overwriting it. If
+empty/missing, generate fresh using the convention set by "Discover the
+test project's real conventions" above (either the discovered project's
+real shape, or this plugin's default TS scaffold).
 
 ## Generate the locator/endpoint file
 
-Skip this section entirely for `backend` — HTTP method/path stay inline in
-the API client (see "Generate the page object / screen object / API
-client" below); there is no separate locator file for backend.
+Skip this section for `backend` in the `default` convention — HTTP
+method/path stay inline in the API client (see "Generate the page object /
+screen object / API client" below), no separate locator file. In the
+`discovered` convention, skip it for `backend` too UNLESS discovery found
+a real, separate endpoints/registry file for this project (rare, but if
+one exists, mirror it the same way frontend/mobile locators are mirrored
+below — same "grounded value or explicit TODO marker" rule applies).
 
-**`frontend`** — write (or merge new entries into) `locators/<MODULE>.locators.ts`:
+Branch on `CONVENTION` (from "Discover the test project's real
+conventions" above):
+
+### `CONVENTION=discovered`
+
+Write (or merge new entries into) the file at `$LOCATOR_DIR` for this
+module, in `$LOCATOR_FORMAT`, mirroring the exact structure of the real
+example file read during discovery (same key naming style, same nesting,
+same file-per-module vs. shared-file pattern as the real example). Apply
+these content rules regardless of format:
+- Selector priority order — frontend/web: `getByRole` → `getByLabel` →
+  `getByTestId` → `getByText` → CSS (last resort). Mobile: `accessibility
+  id` → `UiSelector.text()`/`NSPredicate` → `resourceId`/class chain →
+  `description()` → XPath (last resort).
+- Grounded elements (from the resolved selector source) get a real
+  selector value in whatever shape the discovered format uses (a locator
+  call, a plain string, a JSON value). Ungrounded elements get an explicit
+  marker in that same format instead — never invent a plausible-looking
+  selector. For a JSON locator file (no comment syntax), use a literal
+  string value like `"TODO: unverified — <element description>"` in place
+  of a real selector value.
+- If a file already exists for this module, add new entries for any new
+  element referenced by the feature file; leave existing entries
+  untouched.
+
+### `CONVENTION=default`
+
+**`frontend`** — write (or merge new entries into) `$LOCATOR_DIR/<MODULE>.locators.ts`:
 
 ```typescript
 import { Page } from '@playwright/test';
@@ -314,14 +414,14 @@ export const get<CLASS>Locators = (page: Page) => ({
 });
 ```
 
-Selector priority order (already established for this plugin): `getByRole`
-→ `getByLabel` → `getByTestId` → `getByText` → CSS (last resort). One entry
-per UI element referenced by a step in `features/<MODULE>.feature`.
-Grounded elements get a real locator call; ungrounded elements get a
-`// TODO: unverified — <description>` comment instead — never invent a
-plausible-looking selector.
+Selector priority order: `getByRole` → `getByLabel` → `getByTestId` →
+`getByText` → CSS (last resort). One entry per UI element referenced by a
+step in `$FEATURE_DIR/<MODULE>.feature`. Grounded elements get a real
+locator call; ungrounded elements get a `// TODO: unverified —
+<description>` comment instead — never invent a plausible-looking
+selector.
 
-**`mobile`** — write (or merge new entries into) `locators/mobile/<MODULE>.locators.ts`:
+**`mobile`** — write (or merge new entries into) `$LOCATOR_DIR/<MODULE>.locators.ts`:
 
 ```typescript
 export const get<CLASS>Locators = () => ({
@@ -331,15 +431,37 @@ export const get<CLASS>Locators = () => ({
 });
 ```
 
-Android/iOS priority order (already established for this plugin):
-`accessibility id` → `UiSelector.text()`/`NSPredicate` → `resourceId`/class
-chain → `description()` → XPath (last resort).
+Android/iOS priority order: `accessibility id` →
+`UiSelector.text()`/`NSPredicate` → `resourceId`/class chain →
+`description()` → XPath (last resort).
 
 If a locators file already exists for this module, add new entries for any
 new element referenced by the feature file; leave existing entries
 untouched.
 
 ## Generate the page object / screen object / API client
+
+Branch on `CONVENTION` (from "Discover the test project's real
+conventions" above):
+
+### `CONVENTION=discovered`
+
+Write (or merge new methods into) the file at `$PAGE_DIR` for this module,
+using `$PAGE_EXT`, mirroring the exact shape of the real example file read
+during discovery: same base-class/inheritance pattern (or lack of one) if
+the example extends something, same import style, same method/function
+style (class methods vs. plain exported functions — follow what's real),
+same locator-import pattern (import from `$LOCATOR_DIR`, never inline a
+raw selector directly here regardless of language). Apply these content
+rules regardless of language:
+- Methods represent a semantic action or assertion, grouping the Gherkin
+  step(s) that describe it — NOT a rigid one-method-per-step-line mapping
+  (backend/API calls are the exception: one method per endpoint, since
+  that's already a natural 1:1 unit).
+- If the file already exists for this module, add new methods for any new
+  Gherkin step/endpoint; leave existing methods untouched.
+
+### `CONVENTION=default`
 
 **`frontend`** — write (or merge new methods into) `pages/<CLASS>Page.ts`:
 
@@ -434,8 +556,9 @@ existing methods untouched.
 
 ```
 Spec: specs/<NNN>-<MODULE>/spec.md
-Feature: features/<MODULE>.feature
+Feature: <FEATURE_DIR>/<MODULE>.feature
 Platform: <PLATFORM>
+Generation convention: <discovered from existing project (<language>, <FEATURE_DIR>) | default TS/Playwright-bdd/WebdriverIO scaffold>
 Selector source: <scanned docs | live Playwright | live Appium | unverified | not applicable (backend)>
 Wording discrepancies fixed: <list, or "none">
 Page object / Screen / API client: <path>
@@ -444,6 +567,9 @@ Selectors/endpoints grounded: <n>/<total>
 TODO stubs remaining: <n> (method/entry names listed, or "none")
 
 Not generated yet (future phases): step definitions, test execution.
+If a discovered convention was used: verify your existing runner config
+actually picks up these new files (e.g. its feature-file glob) — this
+command does not modify runner configuration.
 ```
 
 ## Rules
@@ -460,3 +586,8 @@ Not generated yet (future phases): step definitions, test execution.
 - Never overwrite an existing page object / screen object / API client /
   locators file wholesale — merge in new methods/entries, leave existing
   ones untouched.
+- Convention discovery (language, directory, locator file format) uses
+  best-effort matching from real existing files when found — this is the
+  one place this command infers rather than asking. It does NOT apply to
+  selector wording, real selectors, real endpoints, or business content,
+  which are still never guessed.
