@@ -336,6 +336,11 @@ other entries.
 <1-2 line summary of what was found>
 See: .claude/docs/<type>/
 ```
+For `mobile` entries specifically, insert one additional line right after
+`**Last scanned:**`:
+```
+**Platform:** <MOBILE_PLATFORM>
+```
 
 This full template — including the `# Scanned Sources` heading — is only
 for the create case, below. If `.claude/CLAUDE.md` already exists, append
@@ -350,7 +355,10 @@ If `.claude/CLAUDE.md` doesn't exist yet, create it with just the
 
 After all given paths are processed, list every subfolder written (or
 skipped), each with a 1-2 line summary of its actual content — not a
-generic description.
+generic description. For every `mobile` path, state `MOBILE_PLATFORM`
+explicitly and confirm `locators.md` and `directory-tree.md` are included
+in the file list (written, or "⊘ Skipped <file> (already exists)" per the
+overwrite/merge/skip choice).
 
 ## Rules
 
