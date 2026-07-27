@@ -288,13 +288,13 @@ first, then retry, or reply `no` to proceed unverified instead.
 ## Verify step wording (only when a selector source was resolved)
 
 For each scenario step that quotes UI text (a button label, heading, or
-message), compare it against the resolved source (scanned docs' recorded
-text, or the live snapshot/DOM). If the real wording differs from
-CucumberStudio's, use the REAL wording in the generated feature and note
-the discrepancy for the final report. If `SELECTOR_SOURCE=none`, skip this
-verification entirely — every step's wording is used as-is from
-CucumberStudio, and the generated feature will carry the "unverified"
-marker.
+message), compare it against the resolved source (the real source file's
+content when `SELECTOR_SOURCE=source`, scanned docs' recorded text, or the
+live snapshot/DOM). If the real wording differs from CucumberStudio's, use
+the REAL wording in the generated feature and note the discrepancy for the
+final report. If `SELECTOR_SOURCE=none`, skip this verification entirely —
+every step's wording is used as-is from CucumberStudio, and the generated
+feature will carry the "unverified" marker.
 
 ## Write/update spec.md
 
@@ -409,6 +409,10 @@ wording" already resolved above in this same run — never re-open a
 browser/Appium session, never re-ask the user, never re-fetch scanned docs
 from scratch.
 
+- `frontend`/`mobile`, `SELECTOR_SOURCE=source` → the already-read content
+  of the real source file opened during "Resolve the grounding/selector
+  source" — reuse those extracted values directly, never re-open or
+  re-read the file.
 - `frontend`/`mobile`, `SELECTOR_SOURCE=scanned` → the already-read content
   of `.claude/docs/frontend/components.md` or `.claude/docs/mobile/screens.md`.
 - `frontend`/`mobile`, `SELECTOR_SOURCE=live` → the live Playwright/Appium
@@ -637,7 +641,7 @@ Spec: specs/<NNN>-<MODULE>/spec.md
 Feature: <FEATURE_DIR>/<MODULE>.feature
 Platform: <PLATFORM>
 Generation convention: <discovered from existing project (<language>, <FEATURE_DIR>) | default TS/Playwright-bdd/WebdriverIO scaffold>
-Selector source: <scanned docs | live Playwright | live Appium | unverified | not applicable (backend)>
+Selector source: <real source file | scanned docs | live Playwright | live Appium | unverified | not applicable (backend)>
 Wording discrepancies fixed: <list, or "none">
 Page object / Screen / API client: <path>
 Locators: <path, or "not applicable (backend)">
