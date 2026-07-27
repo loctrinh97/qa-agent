@@ -40,6 +40,23 @@ path, start to finish, before moving to the next path.
 
 ## Detect the source type
 
+Before running the signal checks below, check whether this path was
+already scanned: normalize it (resolve to an absolute path, strip any
+trailing slash) and compare against every path recorded in
+`.claude/CLAUDE.md`'s `# Scanned Sources` section (normalized the same
+way).
+
+```bash
+cd "<path>" && pwd
+grep -n "^## .* — " .claude/CLAUDE.md 2>/dev/null
+```
+
+A normalized match found → print `Rescanning <path> (last scanned
+<date>)...` — informational only, every signal check below still runs in
+full, since a rescan's whole purpose is to catch changes (including a
+changed type or platform). No match → proceed silently as a fresh scan
+(no message, unchanged from before).
+
 For the current path, check for these signals — collect **every** signal
 found, not just the first match:
 
