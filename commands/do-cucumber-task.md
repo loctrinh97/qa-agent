@@ -116,7 +116,11 @@ the real feature-file directory, the real page/screen-object directory and
 file extension, the real locator directory and format (a TS/JS factory
 function vs. a JSON file vs. something else), and the real step-definition
 directory (recorded for a future phase — not acted on by this command).
-Skip Step 2 entirely and go to Step 3.
+Then, using the directory/format described, open 1-2 real files at those
+paths (one `.feature` file, one page/screen object, one locator file, if
+each exists) to confirm the exact format before generating anything — the
+docs describe the convention, but the real file is the source of truth if
+they disagree. Skip Step 2 entirely and go to Step 3.
 
 ### Step 2 — direct repo inspection (only if Step 1 found nothing)
 
