@@ -217,6 +217,21 @@ the navigation flow between them, as evidenced by the routing config/code.
 
 ## Scan and write — mobile
 
+### Determine Android vs. iOS
+
+```bash
+ls -la "<path>/android" 2>/dev/null
+find "<path>" -maxdepth 2 \( -iname "AndroidManifest.xml" -o -iname "build.gradle*" \) 2>/dev/null
+ls -la "<path>/ios" 2>/dev/null
+find "<path>" -maxdepth 2 \( -iname "Info.plist" -o -iname "*.xcodeproj" -o -iname "*.xcworkspace" -o -iname "Podfile" \) 2>/dev/null
+```
+- Android signals found AND iOS signals found → `MOBILE_PLATFORM=Android + iOS`.
+- Only Android signals → `MOBILE_PLATFORM=Android`.
+- Only iOS signals → `MOBILE_PLATFORM=iOS`.
+- Neither found (e.g. an Expo managed-workflow project with only
+  `app.json`) → `MOBILE_PLATFORM=not determined — no native android/ios
+  folders found (Expo managed workflow?)`.
+
 Read enough of the path to answer, for each item below, either a grounded
 fact or "not determined". Do not guess.
 
@@ -232,7 +247,8 @@ screens and navigation flow.
 Write (respecting the overwrite/merge/skip choice from "Check for existing
 content"):
 
-**`.claude/docs/mobile/architecture.md`** — screen layer, navigation
+**`.claude/docs/mobile/architecture.md`** — starts with `**Platform**:
+<MOBILE_PLATFORM>` on its own line, then: screen layer, navigation
 library (e.g. `react-navigation`, a native `Navigator`/`NavHost` pattern if
 evidenced), state-management approach. "not determined" for anything not
 evidenced.
