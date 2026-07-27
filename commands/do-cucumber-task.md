@@ -441,6 +441,28 @@ untouched.
 
 ## Generate the page object / screen object / API client
 
+Branch on `CONVENTION` (from "Discover the test project's real
+conventions" above):
+
+### `CONVENTION=discovered`
+
+Write (or merge new methods into) the file at `$PAGE_DIR` for this module,
+using `$PAGE_EXT`, mirroring the exact shape of the real example file read
+during discovery: same base-class/inheritance pattern (or lack of one) if
+the example extends something, same import style, same method/function
+style (class methods vs. plain exported functions — follow what's real),
+same locator-import pattern (import from `$LOCATOR_DIR`, never inline a
+raw selector directly here regardless of language). Apply these content
+rules regardless of language:
+- Methods represent a semantic action or assertion, grouping the Gherkin
+  step(s) that describe it — NOT a rigid one-method-per-step-line mapping
+  (backend/API calls are the exception: one method per endpoint, since
+  that's already a natural 1:1 unit).
+- If the file already exists for this module, add new methods for any new
+  Gherkin step/endpoint; leave existing methods untouched.
+
+### `CONVENTION=default`
+
 **`frontend`** — write (or merge new methods into) `pages/<CLASS>Page.ts`:
 
 ```typescript
