@@ -308,6 +308,19 @@ Omit the `## Android` or `## iOS` top-level section entirely when
 `MOBILE_PLATFORM` doesn't include that platform (don't write an empty
 section for a platform that isn't present).
 
+**`.claude/docs/mobile/directory-tree.md`** — the real scanned directory
+structure, depth-limited and excluding the same noise dirs as above.
+
+```bash
+find "<path>" -maxdepth 4 \
+  -not -path '*/node_modules/*' -not -path '*/.git/*' \
+  -not -path '*/build/*' -not -path '*/Pods/*' \
+  -not -path '*/DerivedData/*' -not -path '*/.gradle/*' \
+  | sort
+```
+Write the raw output as a fenced code block, with a one-line header noting
+the scanned path and the depth limit used (`maxdepth 4`).
+
 ## Update the cumulative index
 
 Read `.claude/CLAUDE.md` if it exists. If it has a `# Scanned Sources`
