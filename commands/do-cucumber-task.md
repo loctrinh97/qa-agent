@@ -343,22 +343,27 @@ from scratch.
 - `SELECTOR_SOURCE=none` (or no source available for backend either) →
   every element/endpoint in this module is unverified.
 
-## Scan existing project style
+## Check for an existing file for this module
 
 ```bash
 case "$PLATFORM" in
-  frontend) ls pages/*.ts locators/*.ts 2>/dev/null ;;
-  mobile)   ls pages/mobile/*.ts locators/mobile/*.ts 2>/dev/null ;;
-  backend)  ls api-clients/*.ts 2>/dev/null ;;
+  frontend|mobile) ls "$PAGE_DIR" "$LOCATOR_DIR" 2>/dev/null | grep -i "$CLASS" ;;
+  backend)         ls "$PAGE_DIR" 2>/dev/null | grep -i "$CLASS" ;;
 esac
 ```
 
-If a file already exists for this exact module (`pages/<CLASS>Page.ts`,
-`pages/mobile/<CLASS>Screen.ts`, or `api-clients/<CLASS>Client.ts`), read
-it now — the generation below merges into it (adds new methods/entries for
-anything new, leaves existing ones untouched) rather than overwriting it.
-If empty/missing, use the default conventions below with no prior style to
-match.
+`$PAGE_DIR` and `$LOCATOR_DIR` come from "Discover the test project's real
+conventions" above — this check runs against the REAL discovered paths,
+not a hardcoded default, so it correctly finds an existing file whether
+this project uses this plugin's own scaffold or a completely different
+one.
+
+If a match is found for this exact module, read that file now — the
+generation below merges into it (adds new methods/entries for anything
+new, leaves existing ones untouched) rather than overwriting it. If
+empty/missing, generate fresh using the convention set by "Discover the
+test project's real conventions" above (either the discovered project's
+real shape, or this plugin's default TS scaffold).
 
 ## Generate the locator/endpoint file
 
