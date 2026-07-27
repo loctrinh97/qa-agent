@@ -367,11 +367,42 @@ real shape, or this plugin's default TS scaffold).
 
 ## Generate the locator/endpoint file
 
-Skip this section entirely for `backend` — HTTP method/path stay inline in
-the API client (see "Generate the page object / screen object / API
-client" below); there is no separate locator file for backend.
+Skip this section for `backend` in the `default` convention — HTTP
+method/path stay inline in the API client (see "Generate the page object /
+screen object / API client" below), no separate locator file. In the
+`discovered` convention, skip it for `backend` too UNLESS discovery found
+a real, separate endpoints/registry file for this project (rare, but if
+one exists, mirror it the same way frontend/mobile locators are mirrored
+below — same "grounded value or explicit TODO marker" rule applies).
 
-**`frontend`** — write (or merge new entries into) `locators/<MODULE>.locators.ts`:
+Branch on `CONVENTION` (from "Discover the test project's real
+conventions" above):
+
+### `CONVENTION=discovered`
+
+Write (or merge new entries into) the file at `$LOCATOR_DIR` for this
+module, in `$LOCATOR_FORMAT`, mirroring the exact structure of the real
+example file read during discovery (same key naming style, same nesting,
+same file-per-module vs. shared-file pattern as the real example). Apply
+these content rules regardless of format:
+- Selector priority order — frontend/web: `getByRole` → `getByLabel` →
+  `getByTestId` → `getByText` → CSS (last resort). Mobile: `accessibility
+  id` → `UiSelector.text()`/`NSPredicate` → `resourceId`/class chain →
+  `description()` → XPath (last resort).
+- Grounded elements (from the resolved selector source) get a real
+  selector value in whatever shape the discovered format uses (a locator
+  call, a plain string, a JSON value). Ungrounded elements get an explicit
+  marker in that same format instead — never invent a plausible-looking
+  selector. For a JSON locator file (no comment syntax), use a literal
+  string value like `"TODO: unverified — <element description>"` in place
+  of a real selector value.
+- If a file already exists for this module, add new entries for any new
+  element referenced by the feature file; leave existing entries
+  untouched.
+
+### `CONVENTION=default`
+
+**`frontend`** — write (or merge new entries into) `$LOCATOR_DIR/<MODULE>.locators.ts`:
 
 ```typescript
 import { Page } from '@playwright/test';
@@ -383,14 +414,14 @@ export const get<CLASS>Locators = (page: Page) => ({
 });
 ```
 
-Selector priority order (already established for this plugin): `getByRole`
-→ `getByLabel` → `getByTestId` → `getByText` → CSS (last resort). One entry
-per UI element referenced by a step in `features/<MODULE>.feature`.
-Grounded elements get a real locator call; ungrounded elements get a
-`// TODO: unverified — <description>` comment instead — never invent a
-plausible-looking selector.
+Selector priority order: `getByRole` → `getByLabel` → `getByTestId` →
+`getByText` → CSS (last resort). One entry per UI element referenced by a
+step in `$FEATURE_DIR/<MODULE>.feature`. Grounded elements get a real
+locator call; ungrounded elements get a `// TODO: unverified —
+<description>` comment instead — never invent a plausible-looking
+selector.
 
-**`mobile`** — write (or merge new entries into) `locators/mobile/<MODULE>.locators.ts`:
+**`mobile`** — write (or merge new entries into) `$LOCATOR_DIR/<MODULE>.locators.ts`:
 
 ```typescript
 export const get<CLASS>Locators = () => ({
@@ -400,9 +431,9 @@ export const get<CLASS>Locators = () => ({
 });
 ```
 
-Android/iOS priority order (already established for this plugin):
-`accessibility id` → `UiSelector.text()`/`NSPredicate` → `resourceId`/class
-chain → `description()` → XPath (last resort).
+Android/iOS priority order: `accessibility id` →
+`UiSelector.text()`/`NSPredicate` → `resourceId`/class chain →
+`description()` → XPath (last resort).
 
 If a locators file already exists for this module, add new entries for any
 new element referenced by the feature file; leave existing entries
