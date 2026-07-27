@@ -14,15 +14,53 @@ project itself — use `/init existing` for that.
 
 ## Parse arguments
 
-`$ARGUMENTS` is one or more space-separated local paths. If none given, stop
-with: `Usage: /scan-source <path1> [path2] ...`. A path containing spaces
-must be quoted by the user (e.g. `/scan-source "/path/with spaces/repo"`),
+`$ARGUMENTS` is one or more space-separated local paths. A path containing
+spaces must be quoted by the user (e.g. `/scan-source "/path/with spaces/repo"`),
 otherwise it will be misparsed as two separate paths.
+
+If `$ARGUMENTS` is empty:
+```bash
+grep -n "^## .* — " .claude/CLAUDE.md 2>/dev/null
+```
+- No `.claude/CLAUDE.md`, or no `## <type> — <path>` lines found → stop
+  with: `Usage: /scan-source <path1> [path2] ...`.
+- One or more found → set the path list to every path extracted from those
+  lines (everything after " — "). Print:
+  ```
+  No path given — rescanning <n> previously-scanned path(s):
+    <type> — <path> (last scanned <date>)
+    ...
+  ```
+  Then proceed with that list, exactly like a normal invocation below.
+
+If `$ARGUMENTS` is non-empty, use the given path(s) as the list, unchanged.
 
 Process each path in the order given — every section below runs once per
 path, start to finish, before moving to the next path.
 
 ## Detect the source type
+
+Before running the signal checks below, check whether this path was
+already scanned: normalize it (resolve to an absolute path, strip any
+trailing slash) and compare against every path recorded in
+`.claude/CLAUDE.md`'s `# Scanned Sources` section (normalized the same
+way).
+
+```bash
+cd "<path>" && pwd
+grep -n "^## .* — " .claude/CLAUDE.md 2>/dev/null
+```
+
+A normalized match found → print `Rescanning <path> (last scanned
+<date>)...`, unless `$ARGUMENTS` was empty and this path came from the
+no-argument batch list — that case was already announced by "Parse
+arguments," so skip the print here to avoid announcing the same rescan
+twice; if the user explicitly supplied this exact path as an argument,
+still print it even though it also matches. Either way, this message is
+informational only — every signal check below still runs in full, since a
+rescan's whole purpose is to catch changes (including a changed type or
+platform). No match → proceed silently as a fresh scan (no message,
+unchanged from before).
 
 For the current path, check for these signals — collect **every** signal
 found, not just the first match:
@@ -101,7 +139,7 @@ ls -la .claude/docs/<type>/ 2>/dev/null
   ```
   .claude/docs/<type>/ already has content (from a previous scan).
 
-    1  Overwrite — replace all 3 files
+    1  Overwrite — replace all files for this type
     2  Merge — only create files that are missing
     3  Skip this path
 
@@ -179,6 +217,21 @@ the navigation flow between them, as evidenced by the routing config/code.
 
 ## Scan and write — mobile
 
+### Determine Android vs. iOS
+
+```bash
+ls -la "<path>/android" 2>/dev/null
+find "<path>" -maxdepth 2 \( -iname "AndroidManifest.xml" -o -iname "build.gradle*" \) 2>/dev/null
+ls -la "<path>/ios" 2>/dev/null
+find "<path>" -maxdepth 2 \( -iname "Info.plist" -o -iname "*.xcodeproj" -o -iname "*.xcworkspace" -o -iname "Podfile" \) 2>/dev/null
+```
+- Android signals found AND iOS signals found → `MOBILE_PLATFORM=Android + iOS`.
+- Only Android signals → `MOBILE_PLATFORM=Android`.
+- Only iOS signals → `MOBILE_PLATFORM=iOS`.
+- Neither found (e.g. an Expo managed-workflow project with only
+  `app.json`) → `MOBILE_PLATFORM=not determined — no native android/ios
+  folders found (Expo managed workflow?)`.
+
 Read enough of the path to answer, for each item below, either a grounded
 fact or "not determined". Do not guess.
 
@@ -194,7 +247,8 @@ screens and navigation flow.
 Write (respecting the overwrite/merge/skip choice from "Check for existing
 content"):
 
-**`.claude/docs/mobile/architecture.md`** — screen layer, navigation
+**`.claude/docs/mobile/architecture.md`** — starts with `**Platform**:
+<MOBILE_PLATFORM>` on its own line, then: screen layer, navigation
 library (e.g. `react-navigation`, a native `Navigator`/`NavHost` pattern if
 evidenced), state-management approach. "not determined" for anything not
 evidenced.
@@ -211,6 +265,61 @@ determined — no screens found" if none.
 **`.claude/docs/mobile/navigation.md`** — the navigation graph/flow between
 screens, as evidenced by the routing/navigation code. "not determined — no
 navigation code found" if none.
+
+**`.claude/docs/mobile/locators.md`** — a flat catalog of test-automation
+hooks by strategy (not by screen — this complements `screens.md`, it does
+not repeat it). All greps below exclude common noise dirs (`node_modules`,
+`.git`, `build`, `Pods`, `DerivedData`, `.gradle`) via `--exclude-dir`,
+since scanning dependency/build trees is slow and produces false hits from
+third-party code.
+
+Only run the Android block when `MOBILE_PLATFORM` includes Android:
+```bash
+grep -rlE "Modifier\.testTag\(|\.semantics\s*\{|createComposeRule\(\)|ComposeTestRule" "<path>" --include='*.kt' --exclude-dir=build --exclude-dir=.gradle --exclude-dir=node_modules 2>/dev/null
+grep -rlE 'contentDescription\s*=|android:contentDescription="|resource-id' "<path>" --include='*.kt' --include='*.xml' --exclude-dir=build --exclude-dir=.gradle --exclude-dir=node_modules 2>/dev/null
+grep -rlE 'AppiumDriver|MobileElement|@AndroidFindBy|UiSelector' "<path>" --exclude-dir=build --exclude-dir=.gradle --exclude-dir=node_modules 2>/dev/null
+```
+
+Only run the iOS block when `MOBILE_PLATFORM` includes iOS:
+```bash
+grep -rlE '\.accessibilityIdentifier\(|accessibilityIdentifier\s*=|@iOSXCUITFindBy' "<path>" --include='*.swift' --exclude-dir=Pods --exclude-dir=DerivedData --exclude-dir=node_modules 2>/dev/null
+grep -rlE 'app\.(buttons|staticTexts|textFields|cells|otherElements)\[' "<path>" --exclude-dir=Pods --exclude-dir=DerivedData --exclude-dir=node_modules 2>/dev/null
+```
+
+Read 2-3 representative files found by the above, to ground real locator
+values — not just "a testTag exists somewhere."
+
+Write `.claude/docs/mobile/locators.md` with one top-level section per
+platform found (both, when `MOBILE_PLATFORM=Android + iOS`):
+
+```markdown
+## Android
+### Appium locators
+<real accessibility id / resource-id / content-desc values found, or
+"not determined — none found">
+### Compose Testing
+<real testTag / semantics values found, or "not determined — none found">
+
+## iOS
+### Accessibility identifiers / XCUITest queries
+<real values found, or "not determined — none found">
+```
+Omit the `## Android` or `## iOS` top-level section entirely when
+`MOBILE_PLATFORM` doesn't include that platform (don't write an empty
+section for a platform that isn't present).
+
+**`.claude/docs/mobile/directory-tree.md`** — the real scanned directory
+structure, depth-limited and excluding the same noise dirs as above.
+
+```bash
+find "<path>" -maxdepth 4 \
+  -not -path '*/node_modules/*' -not -path '*/.git/*' \
+  -not -path '*/build/*' -not -path '*/Pods/*' \
+  -not -path '*/DerivedData/*' -not -path '*/.gradle/*' \
+  | sort
+```
+Write the raw output as a fenced code block, with a one-line header noting
+the scanned path and the depth limit used (`maxdepth 4`).
 
 ## Update the cumulative index
 
