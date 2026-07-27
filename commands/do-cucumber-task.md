@@ -556,8 +556,9 @@ existing methods untouched.
 
 ```
 Spec: specs/<NNN>-<MODULE>/spec.md
-Feature: features/<MODULE>.feature
+Feature: <FEATURE_DIR>/<MODULE>.feature
 Platform: <PLATFORM>
+Generation convention: <discovered from existing project (<language>, <FEATURE_DIR>) | default TS/Playwright-bdd/WebdriverIO scaffold>
 Selector source: <scanned docs | live Playwright | live Appium | unverified | not applicable (backend)>
 Wording discrepancies fixed: <list, or "none">
 Page object / Screen / API client: <path>
@@ -566,6 +567,9 @@ Selectors/endpoints grounded: <n>/<total>
 TODO stubs remaining: <n> (method/entry names listed, or "none")
 
 Not generated yet (future phases): step definitions, test execution.
+If a discovered convention was used: verify your existing runner config
+actually picks up these new files (e.g. its feature-file glob) — this
+command does not modify runner configuration.
 ```
 
 ## Rules
@@ -582,3 +586,8 @@ Not generated yet (future phases): step definitions, test execution.
 - Never overwrite an existing page object / screen object / API client /
   locators file wholesale — merge in new methods/entries, leave existing
   ones untouched.
+- Convention discovery (language, directory, locator file format) uses
+  best-effort matching from real existing files when found — this is the
+  one place this command infers rather than asking. It does NOT apply to
+  selector wording, real selectors, real endpoints, or business content,
+  which are still never guessed.
