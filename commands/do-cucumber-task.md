@@ -97,6 +97,65 @@ ls .claude/docs/ 2>/dev/null
 
 Set `PLATFORM` from whichever branch applied.
 
+## Discover the test project's real conventions
+
+Before writing any file, determine what test-running setup this project
+actually has — never assume this plugin's own default scaffold is what's
+in place.
+
+### Step 1 — check for `/init existing`'s docs first
+
+```bash
+ls .claude/docs/coding-conventions.md .claude/docs/structure.md \
+   .claude/docs/test-case-template.md .claude/docs/selectors-locators.md \
+   .claude/docs/patterns.md 2>/dev/null
+```
+
+Any of these exist → read them. Extract: the language/framework in use,
+the real feature-file directory, the real page/screen-object directory and
+file extension, the real locator directory and format (a TS/JS factory
+function vs. a JSON file vs. something else), and the real step-definition
+directory (recorded for a future phase — not acted on by this command).
+Skip Step 2 entirely and go to Step 3.
+
+### Step 2 — direct repo inspection (only if Step 1 found nothing)
+
+```bash
+cat package.json 2>/dev/null | grep -A5 '"scripts"'
+cat package.json 2>/dev/null | grep -iE 'cucumber|wdio|playwright|webdriverio'
+ls wdio.conf.js wdio.conf.ts cucumber.js .cucumberrc playwright.config.ts 2>/dev/null
+find . -maxdepth 4 -name "*.feature" -not -path "*/node_modules/*" 2>/dev/null
+find . -maxdepth 4 -type d \( -iname "steps" -o -iname "step-definitions" \) -not -path "*/node_modules/*" 2>/dev/null
+find . -maxdepth 4 -type d \( -iname "pages" -o -iname "screens" \) -not -path "*/node_modules/*" 2>/dev/null
+find . -maxdepth 4 -type d -iname "locators" -not -path "*/node_modules/*" 2>/dev/null
+```
+
+Any signal found (a real `.feature` file, a real page/screen/locator
+directory, a recognizable test script/dependency) → read 1-2 real files at
+the discovered paths (one `.feature` file, one page/screen object, one
+locator file, if each exists) to ground the exact language, naming, and
+format before generating anything.
+
+### Step 3 — set the convention variables
+
+- Steps 1-2 both found nothing → `CONVENTION=default`. Use this plugin's
+  own scaffold conventions: `FEATURE_DIR=features`,
+  `PAGE_DIR=pages` (`pages/mobile` for mobile, `api-clients` for backend),
+  `PAGE_EXT=ts`, `LOCATOR_DIR=locators` (`locators/mobile` for mobile),
+  `LOCATOR_FORMAT=ts-factory`. This is the `/init new` greenfield case —
+  behavior is unchanged from before this fix.
+- Step 1 or 2 found a real signal → `CONVENTION=discovered`. Set
+  `FEATURE_DIR`, `PAGE_DIR`, `PAGE_EXT`, `LOCATOR_DIR`, `LOCATOR_FORMAT`
+  from what was actually read. If only some of these were evidenced (e.g.
+  a real feature directory was found but no locator file/directory
+  anywhere), best-effort fill the ungrounded piece with the closest
+  default shape for the discovered language (e.g. a JS project with no
+  locator convention found → a plain exported JS object, not a TS factory
+  function) — do not stop to ask the user. This is the one place in this
+  command that infers rather than asking; it does not extend to selector
+  wording, real selectors, real endpoints, or business content, which are
+  still never guessed.
+
 ## Resolve the grounding/selector source
 
 Branch on `PLATFORM`:
