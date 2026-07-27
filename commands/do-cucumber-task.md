@@ -1,6 +1,6 @@
 ---
 name: do-cucumber-task
-description: Fetch one CucumberStudio scenario, ground it against this workspace's spec.md/scanned-source knowledge, verify its wording against real selectors when available, write/update specs/NNN-<module>/spec.md, generate features/<module>.feature, and generate the grounded page object/screen object/API client (plus locators, for frontend/mobile) underneath it. Does not yet generate step definitions or run the test.
+description: Fetch one CucumberStudio scenario, ground it against this workspace's spec.md/scanned-source knowledge, verify its wording against real selectors when available, write/update specs/NNN-<module>/spec.md, generate `<module>.feature` at the project's real feature-file location, and generate the grounded page object/screen object/API client (plus locators, for frontend/mobile) underneath it. Does not yet generate step definitions or run the test.
 argument-hint: "<cucumberstudio-url>"
 ---
 
