@@ -179,7 +179,7 @@ grep -n "^## mobile — " .claude/CLAUDE.md 2>/dev/null
   ```
   - `OK` → resolve the real source file for this scenario's screen:
     ```bash
-    grep -A1 "^### .*$(echo "$MODULE" | tr '-' ' ')" .claude/docs/mobile/screens.md 2>/dev/null
+    grep -iA1 "^### .*$(echo "$MODULE" | tr -d '-')" .claude/docs/mobile/screens.md 2>/dev/null
     ```
     Match `MODULE` against `screens.md` headings case-insensitively,
     ignoring `-`/spaces (e.g. `MODULE=login-screen` matches
@@ -236,7 +236,7 @@ grep -n "^## frontend — " .claude/CLAUDE.md 2>/dev/null
   ```
   - `OK` → resolve the real source file for this scenario's component:
     ```bash
-    grep -A1 "^### .*$(echo "$MODULE" | tr '-' ' ')" .claude/docs/frontend/components.md 2>/dev/null
+    grep -iA1 "^### .*$(echo "$MODULE" | tr -d '-')" .claude/docs/frontend/components.md 2>/dev/null
     ```
     Match `MODULE` against `components.md` headings case-insensitively,
     ignoring `-`/spaces (e.g. `MODULE=login-form` matches `### LoginForm`).
