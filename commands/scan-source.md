@@ -14,10 +14,26 @@ project itself — use `/init existing` for that.
 
 ## Parse arguments
 
-`$ARGUMENTS` is one or more space-separated local paths. If none given, stop
-with: `Usage: /scan-source <path1> [path2] ...`. A path containing spaces
-must be quoted by the user (e.g. `/scan-source "/path/with spaces/repo"`),
+`$ARGUMENTS` is one or more space-separated local paths. A path containing
+spaces must be quoted by the user (e.g. `/scan-source "/path/with spaces/repo"`),
 otherwise it will be misparsed as two separate paths.
+
+If `$ARGUMENTS` is empty:
+```bash
+grep -n "^## .* — " .claude/CLAUDE.md 2>/dev/null
+```
+- No `.claude/CLAUDE.md`, or no `## <type> — <path>` lines found → stop
+  with: `Usage: /scan-source <path1> [path2] ...`.
+- One or more found → set the path list to every path extracted from those
+  lines (everything after " — "). Print:
+  ```
+  No path given — rescanning <n> previously-scanned path(s):
+    <type> — <path> (last scanned <date>)
+    ...
+  ```
+  Then proceed with that list, exactly like a normal invocation below.
+
+If `$ARGUMENTS` is non-empty, use the given path(s) as the list, unchanged.
 
 Process each path in the order given — every section below runs once per
 path, start to finish, before moving to the next path.
@@ -101,7 +117,7 @@ ls -la .claude/docs/<type>/ 2>/dev/null
   ```
   .claude/docs/<type>/ already has content (from a previous scan).
 
-    1  Overwrite — replace all 3 files
+    1  Overwrite — replace all files for this type
     2  Merge — only create files that are missing
     3  Skip this path
 
