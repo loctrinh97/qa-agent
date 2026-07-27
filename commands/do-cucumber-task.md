@@ -228,6 +228,45 @@ proceed unverified instead.
 
 **`frontend`**:
 ```bash
+grep -n "^## frontend — " .claude/CLAUDE.md 2>/dev/null
+```
+- A `## frontend — <SAVED_PATH>` entry found:
+  ```bash
+  test -d "<SAVED_PATH>" -a -r "<SAVED_PATH>" && echo OK
+  ```
+  - `OK` → resolve the real source file for this scenario's component:
+    ```bash
+    grep -A1 "^### .*$(echo "$MODULE" | tr '-' ' ')" .claude/docs/frontend/components.md 2>/dev/null
+    ```
+    Match `MODULE` against `components.md` headings case-insensitively,
+    ignoring `-`/spaces (e.g. `MODULE=login-form` matches `### LoginForm`).
+    A match with a `**File:**` line:
+    - The file still exists at `<SAVED_PATH>/<recorded relative path>` →
+      open and read it directly, extracting current selector values from
+      the real file. Set `SELECTOR_SOURCE=source`. Skip straight to
+      "Verify step wording".
+    - The file no longer exists at that path (renamed/moved/deleted since
+      the last scan) → treat as no match, continue below.
+    No match (no `components.md` for this path, no entry for `MODULE`, or
+    its recorded file is gone) → fall back to a direct search:
+    ```bash
+    find "<SAVED_PATH>" -type f -iname "*$(echo "$MODULE" | tr '-' '*')*" -not -path '*/node_modules/*' -not -path '*/build/*' -not -path '*/dist/*' 2>/dev/null
+    ```
+    - Exactly one match → open and read it directly. Set
+      `SELECTOR_SOURCE=source`. Skip straight to "Verify step wording".
+    - Zero or 2+ matches → print whatever candidates were found (if any),
+      then ask: "Couldn't find a unique real source file for `<MODULE>`
+      under `<SAVED_PATH>`. Paste the real file path, or reply `skip` to
+      use the scanned docs / live connection instead." Wait for the
+      reply. A path given → open and read it directly,
+      `SELECTOR_SOURCE=source`, skip straight to "Verify step wording".
+      `skip` → continue to the legacy ask below.
+  - No `OK` (missing/unreadable) → continue to the legacy ask below.
+- No `## frontend — ` entry found → continue to the legacy ask below.
+
+Legacy ask (only reached when the saved path is missing/unreadable, or the
+user replied `skip` above):
+```bash
 ls .claude/docs/frontend/components.md 2>/dev/null
 ```
 - Exists → ask: "Use the scanned .claude/docs/frontend/components.md, or a
