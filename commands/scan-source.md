@@ -275,14 +275,14 @@ third-party code.
 
 Only run the Android block when `MOBILE_PLATFORM` includes Android:
 ```bash
-grep -rlE "Modifier\.testTag\(|\.semantics\s*\{|createComposeRule\(\)|ComposeTestRule" "<path>" --include=*.kt --exclude-dir=build --exclude-dir=.gradle --exclude-dir=node_modules 2>/dev/null
-grep -rlE 'contentDescription\s*=|android:contentDescription="|resource-id' "<path>" --include=*.kt --include=*.xml --exclude-dir=build --exclude-dir=.gradle --exclude-dir=node_modules 2>/dev/null
+grep -rlE "Modifier\.testTag\(|\.semantics\s*\{|createComposeRule\(\)|ComposeTestRule" "<path>" --include='*.kt' --exclude-dir=build --exclude-dir=.gradle --exclude-dir=node_modules 2>/dev/null
+grep -rlE 'contentDescription\s*=|android:contentDescription="|resource-id' "<path>" --include='*.kt' --include='*.xml' --exclude-dir=build --exclude-dir=.gradle --exclude-dir=node_modules 2>/dev/null
 grep -rlE 'AppiumDriver|MobileElement|@AndroidFindBy|UiSelector' "<path>" --exclude-dir=build --exclude-dir=.gradle --exclude-dir=node_modules 2>/dev/null
 ```
 
 Only run the iOS block when `MOBILE_PLATFORM` includes iOS:
 ```bash
-grep -rlE '\.accessibilityIdentifier\(|accessibilityIdentifier\s*=|@iOSXCUITFindBy' "<path>" --include=*.swift --exclude-dir=Pods --exclude-dir=DerivedData --exclude-dir=node_modules 2>/dev/null
+grep -rlE '\.accessibilityIdentifier\(|accessibilityIdentifier\s*=|@iOSXCUITFindBy' "<path>" --include='*.swift' --exclude-dir=Pods --exclude-dir=DerivedData --exclude-dir=node_modules 2>/dev/null
 grep -rlE 'app\.(buttons|staticTexts|textFields|cells|otherElements)\[' "<path>" --exclude-dir=Pods --exclude-dir=DerivedData --exclude-dir=node_modules 2>/dev/null
 ```
 
