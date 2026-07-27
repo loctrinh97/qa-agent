@@ -209,7 +209,16 @@ has more than one identifying attribute, record it under the highest-priority
 type found, in this order: **1. `data-test`/`data-testid`** → **2. `id`**
 → **3. CSS selector/class** → **4. XPath** (last resort — only when nothing
 higher in the list exists). Note which tier was used for each entry. One
-entry per component read. "not determined — no components found" if none.
+entry per component read. Also record the real file path each entry was
+read from (relative to `<path>`), as a `**File:**` line directly under the
+component's heading — this lets `/do-cucumber-task` jump straight to the
+real file later without re-searching:
+```markdown
+### LoginForm
+**File:** src/components/LoginForm.tsx
+- data-testid="login-submit" → submit button
+```
+"not determined — no components found" if none.
 
 **`.claude/docs/frontend/routes.md`** — real page routes/URL patterns and
 the navigation flow between them, as evidenced by the routing config/code.
@@ -259,8 +268,17 @@ than one identifying attribute, record it under the highest-priority type
 found, in this order: **1. `data-test`/`data-testid`/`testID`/accessibility
 id** → **2. `id`/resource-id** → **3. CSS selector-equivalent/class** →
 **4. XPath** (last resort — only when nothing higher in the list exists).
-Note which tier was used for each entry. One entry per screen read. "not
-determined — no screens found" if none.
+Note which tier was used for each entry. One entry per screen read. Also
+record the real file path each entry was read from (relative to `<path>`),
+as a `**File:**` line directly under the screen's heading — this lets
+`/do-cucumber-task` jump straight to the real file later without
+re-searching:
+```markdown
+### LoginScreen
+**File:** android/app/src/main/java/com/example/LoginScreen.kt
+- testTag("login_button") → login button
+```
+"not determined — no screens found" if none.
 
 **`.claude/docs/mobile/navigation.md`** — the navigation graph/flow between
 screens, as evidenced by the routing/navigation code. "not determined — no
