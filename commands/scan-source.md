@@ -266,6 +266,48 @@ determined — no screens found" if none.
 screens, as evidenced by the routing/navigation code. "not determined — no
 navigation code found" if none.
 
+**`.claude/docs/mobile/locators.md`** — a flat catalog of test-automation
+hooks by strategy (not by screen — this complements `screens.md`, it does
+not repeat it). All greps below exclude common noise dirs (`node_modules`,
+`.git`, `build`, `Pods`, `DerivedData`, `.gradle`) via `--exclude-dir`,
+since scanning dependency/build trees is slow and produces false hits from
+third-party code.
+
+Only run the Android block when `MOBILE_PLATFORM` includes Android:
+```bash
+grep -rlE "Modifier\.testTag\(|\.semantics\s*\{|createComposeRule\(\)|ComposeTestRule" "<path>" --include=*.kt --exclude-dir=build --exclude-dir=.gradle --exclude-dir=node_modules 2>/dev/null
+grep -rlE 'contentDescription\s*=|android:contentDescription="|resource-id' "<path>" --include=*.kt --include=*.xml --exclude-dir=build --exclude-dir=.gradle --exclude-dir=node_modules 2>/dev/null
+grep -rlE 'AppiumDriver|MobileElement|@AndroidFindBy|UiSelector' "<path>" --exclude-dir=build --exclude-dir=.gradle --exclude-dir=node_modules 2>/dev/null
+```
+
+Only run the iOS block when `MOBILE_PLATFORM` includes iOS:
+```bash
+grep -rlE '\.accessibilityIdentifier\(|accessibilityIdentifier\s*=|@iOSXCUITFindBy' "<path>" --include=*.swift --exclude-dir=Pods --exclude-dir=DerivedData --exclude-dir=node_modules 2>/dev/null
+grep -rlE 'app\.(buttons|staticTexts|textFields|cells|otherElements)\[' "<path>" --exclude-dir=Pods --exclude-dir=DerivedData --exclude-dir=node_modules 2>/dev/null
+```
+
+Read 2-3 representative files found by the above, to ground real locator
+values — not just "a testTag exists somewhere."
+
+Write `.claude/docs/mobile/locators.md` with one top-level section per
+platform found (both, when `MOBILE_PLATFORM=Android + iOS`):
+
+```markdown
+## Android
+### Appium locators
+<real accessibility id / resource-id / content-desc values found, or
+"not determined — none found">
+### Compose Testing
+<real testTag / semantics values found, or "not determined — none found">
+
+## iOS
+### Accessibility identifiers / XCUITest queries
+<real values found, or "not determined — none found">
+```
+Omit the `## Android` or `## iOS` top-level section entirely when
+`MOBILE_PLATFORM` doesn't include that platform (don't write an empty
+section for a platform that isn't present).
+
 ## Update the cumulative index
 
 Read `.claude/CLAUDE.md` if it exists. If it has a `# Scanned Sources`
