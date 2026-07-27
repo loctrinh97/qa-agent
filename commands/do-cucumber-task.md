@@ -283,7 +283,8 @@ step), re-score once, then proceed regardless.
 
 ## Generate the feature file
 
-Write `features/<MODULE>.feature`:
+Write `$FEATURE_DIR/<MODULE>.feature` (using `$FEATURE_DIR` from "Discover
+the test project's real conventions" above):
 
 ```gherkin
 # Generated: <date> | Source: CucumberStudio — <cucumberstudio-url>
