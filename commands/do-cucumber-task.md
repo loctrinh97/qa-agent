@@ -646,6 +646,118 @@ instead of inventing a plausible-looking path. If the client already
 exists for this module, add new methods for any new endpoint; leave
 existing methods untouched.
 
+## Generate step definitions
+
+For each Given/When/Then line in `$FEATURE_DIR/<MODULE>.feature` (from
+"Generate the feature file"), normalize `{string}`/`{int}` placeholders
+the same way Cucumber does, then check `$STEP_DIR` for an existing file
+covering this module:
+
+```bash
+ls "$STEP_DIR" 2>/dev/null | grep -i "$CLASS"
+```
+
+- A matching file exists → read it. A step already bound there → skip it,
+  leave the existing binding untouched. Only steps NOT already bound are
+  generated below.
+- No matching file, or it exists but doesn't cover a given step → generate
+  a binding for it, per "Sourcing each binding" below.
+
+### Automation-only technical preconditions (narrow exception)
+
+CucumberStudio scenarios are sometimes written for manual testing and may
+omit a precondition a human tester does implicitly (e.g. "Given I am on
+the Login screen" before a data-entry step). You may add such a step ONLY
+when it is a pure technical/navigation precondition carrying no new
+business meaning — never a new or reworded Given/When/Then with
+acceptance-criteria significance. List every step added this way under
+"Steps auto-supplemented" in the Report. This is the one narrow, always-
+reported exception to "never invent scenario steps" (see Rules).
+
+### Sourcing each binding
+
+For each element/action a step references, look up the entry in
+`$LOCATOR_DIR` (written in "Generate the locator/endpoint file"):
+
+- **Grounded** (a real selector value, not a `TODO: unverified` marker)
+  → write a binding that delegates to the page object / screen object /
+  API client method generated in "Generate the page object / screen
+  object / API client" for that element/action. Never inline a raw
+  selector in the step body.
+- **Not grounded** (missing entry, or still a TODO-stub) → the binding
+  cannot be honestly written. Emit a TODO-stub binding instead —
+  syntactically valid, but it throws a descriptive error instead of doing
+  anything:
+
+```javascript
+Given('...', async () => {
+  throw new Error('TODO: unverified — locator "<key>" not found in <LOCATOR_DIR>/<MODULE>.locators.<ext>. Run /scan-source or ground manually, then re-run /do-cucumber-task.')
+})
+```
+List this step under "TODO stubs remaining" in the Report — the same
+field Phase C already populates for locators; step-def stubs are added to
+that same list, not a separate one.
+
+### Format
+
+Branch on `CONVENTION` (from "Discover the test project's real
+conventions"):
+
+**`CONVENTION=discovered`** — mirror the real step-def file read during
+discovery: same import style, same `$STEP_MODULE_SYSTEM` (`require` vs
+`import`), same function declaration style (arrow vs `async function`),
+same `$CUCUMBER_BINDING` syntax, same page/screen/client instantiation
+pattern.
+
+**`CONVENTION=default`**:
+
+`frontend`/`backend` (`playwright-bdd`) — write (or merge new bindings
+into) `$STEP_DIR/<MODULE>.steps.ts`:
+
+```typescript
+import { createBdd } from 'playwright-bdd';
+import { <CLASS>Page } from '../pages/<CLASS>Page';
+
+const { Given, When, Then } = createBdd();
+
+Given('<step text>', async ({ page }) => {
+  const <instanceName> = new <CLASS>Page(page);
+  await <instanceName>.<actionMethodName>();
+});
+```
+
+`mobile` (`@wdio/cucumber-framework`) — write (or merge new bindings
+into) `$STEP_DIR/<MODULE>.steps.ts`:
+
+```typescript
+import { Given, When, Then } from '@wdio/cucumber-framework';
+import { <CLASS>Screen } from '../../pages/mobile/<CLASS>Screen';
+
+const <instanceName> = new <CLASS>Screen();
+
+Given('<step text>', async () => {
+  await <instanceName>.<actionMethodName>();
+});
+```
+
+One binding per step. String parameters use `{string}`, typed `string`;
+int parameters use `{int}`, typed `number`.
+
+### Merge
+
+If `$STEP_DIR/<module>Steps.<ext>` (or the real discovered naming
+convention) already exists, add only the new bindings identified above;
+leave every existing binding untouched.
+
+### Sanity check
+
+After writing, set `STEP_FILE` to the file just written/merged, then run:
+```bash
+[ "$STEP_EXT" = "ts" ] && npx tsc --noEmit "$STEP_FILE" || node --check "$STEP_FILE"
+```
+A parse error → fix it now, re-run the check until it's clean, before
+ending this section.
+
 ## Report
 
 ```
