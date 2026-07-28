@@ -811,6 +811,21 @@ Record for the Report: retry counts, which locator(s) were healed and
 from what source, final pass/fail, and the failing step + output tail if
 still failing.
 
+## Auto-un-disable the feature
+
+Read `$FEATURE_DIR/<MODULE>.feature`'s tag line (written in "Generate the
+feature file").
+
+- "Generate step definitions" left any TODO-stub binding → keep
+  `@disable`, state which step(s) are stubbed and why in the Report.
+- `RUN_FLAG=false` and no TODO-stub was left → remove `@disable` (no run
+  evidence exists, but nothing is known to be missing either).
+- `RUN_FLAG=true` and "Run smoke test" passed (with or without heals) →
+  remove `@disable`.
+- `RUN_FLAG=true` and "Run smoke test" is still failing after exhausting
+  a step's 3-attempt budget, or hit a hard stop (no source to heal from)
+  → keep `@disable`, state which step failed and why in the Report.
+
 ## Report
 
 ```
