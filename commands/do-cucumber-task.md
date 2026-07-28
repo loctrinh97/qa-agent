@@ -838,9 +838,13 @@ Wording discrepancies fixed: <list, or "none">
 Page object / Screen / API client: <path>
 Locators: <path, or "not applicable (backend)">
 Selectors/endpoints grounded: <n>/<total>
-TODO stubs remaining: <n> (method/entry names listed, or "none")
+TODO stubs remaining: <n> (method/entry/step names listed, or "none")
+Step definitions: <path>
+Steps generated: <n> new / <n> reused (already covered)
+Steps auto-supplemented (technical precondition only): <list, or "none">
+Smoke run: <not run | passed (n heal attempts: <list>) | failed after 3 attempts on step "<step text>": <tail output>>
+Feature tag: <@disable removed | @disable kept — reason>
 
-Not generated yet (future phases): step definitions, test execution.
 If a discovered convention was used: verify your existing runner config
 actually picks up these new files (e.g. its feature-file glob) — this
 command does not modify runner configuration.
@@ -848,20 +852,25 @@ command does not modify runner configuration.
 
 ## Rules
 
-- Do NOT generate step definitions or run any test — those are future
-  phases of this plugin.
 - Do NOT run `git` commands — this command only reads/writes files and
   calls MCP tools.
-- Never guess a module name, platform, selector wording, real selector, or
-  real endpoint — ask when ambiguous, mark "unverified"/TODO-stub when no
-  grounded source is available.
+- Never guess a module name, platform, selector wording, real selector,
+  real endpoint, or a replacement selector while healing a failing smoke
+  test — ask when ambiguous, mark "unverified"/TODO-stub when no grounded
+  source is available, and stop (never guess) when a failing smoke-test
+  step has no real source left to re-ground from.
 - Never invent scenario steps not present in the fetched CucumberStudio
-  content.
+  content, with one narrow exception: "Generate step definitions" may add
+  a pure technical/navigation precondition step with no business meaning
+  (e.g. an implicit "Given I am on the X screen" a manual tester would do
+  without writing it down) — never a step carrying acceptance-criteria
+  significance. Every such addition is listed under "Steps
+  auto-supplemented" in the Report, always.
 - Never overwrite an existing page object / screen object / API client /
-  locators file wholesale — merge in new methods/entries, leave existing
-  ones untouched.
-- Convention discovery (language, directory, locator file format) uses
-  best-effort matching from real existing files when found — this is the
-  one place this command infers rather than asking. It does NOT apply to
-  selector wording, real selectors, real endpoints, or business content,
-  which are still never guessed.
+  locators / step-definitions file wholesale — merge in new
+  methods/entries/bindings, leave existing ones untouched.
+- Convention discovery (language, directory, locator file format, step-
+  definition layout) uses best-effort matching from real existing files
+  when found — this is the one place this command infers rather than
+  asking. It does NOT apply to selector wording, real selectors, real
+  endpoints, or business content, which are still never guessed.
