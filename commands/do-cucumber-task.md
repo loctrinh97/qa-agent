@@ -1,26 +1,28 @@
 ---
 name: do-cucumber-task
-description: Fetch one CucumberStudio scenario, ground it against this workspace's spec.md/scanned-source knowledge, verify its wording against real selectors when available, write/update specs/NNN-<module>/spec.md, generate `<module>.feature` at the project's real feature-file location, and generate the grounded page object/screen object/API client (plus locators, for frontend/mobile) underneath it. Does not yet generate step definitions or run the test.
-argument-hint: "<cucumberstudio-url>"
+description: Fetch one CucumberStudio scenario, ground it against this workspace's spec.md/scanned-source knowledge, verify its wording against real selectors when available, write/update specs/NNN-<module>/spec.md, generate `<module>.feature` at the project's real feature-file location, generate the grounded page object/screen object/API client (plus locators, for frontend/mobile), generate step definitions, and — with --run — smoke-test and auto-un-disable the feature.
+argument-hint: "<cucumberstudio-url> [--run]"
 ---
 
 EXECUTE IMMEDIATELY.
 
-This converts one CucumberStudio scenario into a grounded spec.md + .feature
-file, plus the page object/screen object/API client (and locators, for
-frontend/mobile) underneath it. It does NOT generate step definitions or
-run any test — those are future phases of this plugin.
+This converts one CucumberStudio scenario into a grounded spec.md +
+.feature file, the page object/screen object/API client (and locators,
+for frontend/mobile), and step definitions underneath it. With --run, it
+also smoke-tests the freshly-generated feature and removes the @disable
+tag when it's genuinely ready.
 
 ## Parse the CucumberStudio URL
 
 Expected pattern: `https://studio.cucumberstudio.com/projects/<projectId>/test-plan/folders/<folderId>/scenarios/<scenarioId>`
 
 ```bash
-URL="$ARGUMENTS"
+URL=$(echo "$ARGUMENTS" | awk '{print $1}')
+RUN_FLAG=$(echo "$ARGUMENTS" | grep -qw -- "--run" && echo "true" || echo "false")
 PROJECT_ID=$(echo "$URL" | grep -oE 'projects/[0-9]+' | grep -oE '[0-9]+')
 FOLDER_ID=$(echo "$URL" | grep -oE 'folders/[0-9]+' | grep -oE '[0-9]+')
 SCENARIO_ID=$(echo "$URL" | grep -oE 'scenarios/[0-9]+' | grep -oE '[0-9]+')
-echo "PROJECT_ID=$PROJECT_ID FOLDER_ID=$FOLDER_ID SCENARIO_ID=$SCENARIO_ID"
+echo "PROJECT_ID=$PROJECT_ID FOLDER_ID=$FOLDER_ID SCENARIO_ID=$SCENARIO_ID RUN_FLAG=$RUN_FLAG"
 ```
 
 If any of the three IDs is empty, stop with:
@@ -115,12 +117,15 @@ Any of these exist → read them. Extract: the language/framework in use,
 the real feature-file directory, the real page/screen-object directory and
 file extension, the real locator directory and format (a TS/JS factory
 function vs. a JSON file vs. something else), and the real step-definition
-directory (recorded for a future phase — not acted on by this command).
-Then, using the directory/format described, open 1-2 real files at those
-paths (one `.feature` file, one page/screen object, one locator file, if
-each exists) to confirm the exact format before generating anything — the
-docs describe the convention, but the real file is the source of truth if
-they disagree. Skip Step 2 entirely and go to Step 3.
+directory, file extension, module system (CommonJS `require` vs ESM
+`import`), and Cucumber binding source (`@wdio/cucumber-framework`,
+`playwright-bdd`, `@cucumber/cucumber`, or something else). Then, using
+the directory/format described, open 1-2 real files at those paths (one
+`.feature` file, one page/screen object, one locator file, one step-
+definition file, if each exists) to confirm the exact format before
+generating anything — the docs describe the convention, but the real file
+is the source of truth if they disagree. Skip Step 2 entirely and go to
+Step 3.
 
 ### Step 2 — direct repo inspection (only if Step 1 found nothing)
 
@@ -134,11 +139,14 @@ find . -maxdepth 4 -type d \( -iname "pages" -o -iname "screens" \) -not -path "
 find . -maxdepth 4 -type d -iname "locators" -not -path "*/node_modules/*" 2>/dev/null
 ```
 
-Any signal found (a real `.feature` file, a real page/screen/locator
-directory, a recognizable test script/dependency) → read 1-2 real files at
-the discovered paths (one `.feature` file, one page/screen object, one
-locator file, if each exists) to ground the exact language, naming, and
-format before generating anything.
+Any signal found (a real `.feature` file, a real page/screen/locator/step-
+definition directory, a recognizable test script/dependency) → read 1-2
+real files at the discovered paths (one `.feature` file, one page/screen
+object, one locator file, one step-definition file, if each exists) to
+ground the exact language, naming, module system (CommonJS `require` vs
+ESM `import`), and Cucumber binding source (`@wdio/cucumber-framework`,
+`playwright-bdd`, `@cucumber/cucumber`, or something else) before
+generating anything.
 
 ### Step 3 — set the convention variables
 
@@ -146,11 +154,15 @@ format before generating anything.
   own scaffold conventions: `FEATURE_DIR=features`,
   `PAGE_DIR=pages` (`pages/mobile` for mobile, `api-clients` for backend),
   `PAGE_EXT=ts`, `LOCATOR_DIR=locators` (`locators/mobile` for mobile),
-  `LOCATOR_FORMAT=ts-factory`. This is the `/init new` greenfield case —
-  behavior is unchanged from before this fix.
+  `LOCATOR_FORMAT=ts-factory`, `STEP_DIR=steps` (`steps/mobile` for
+  mobile), `STEP_EXT=ts`, `STEP_MODULE_SYSTEM=esm`,
+  `CUCUMBER_BINDING=playwright-bdd` (frontend/backend) or
+  `@wdio/cucumber-framework` (mobile). This is the `/init new` greenfield
+  case — behavior is unchanged from before this fix.
 - Step 1 or 2 found a real signal → `CONVENTION=discovered`. Set
-  `FEATURE_DIR`, `PAGE_DIR`, `PAGE_EXT`, `LOCATOR_DIR`, `LOCATOR_FORMAT`
-  from what was actually read. If only some of these were evidenced (e.g.
+  `FEATURE_DIR`, `PAGE_DIR`, `PAGE_EXT`, `LOCATOR_DIR`, `LOCATOR_FORMAT`,
+  `STEP_DIR`, `STEP_EXT`, `STEP_MODULE_SYSTEM`, `CUCUMBER_BINDING` from
+  what was actually read. If only some of these were evidenced (e.g.
   a real feature directory was found but no locator file/directory
   anywhere), best-effort fill the ungrounded piece with the closest
   default shape for the discovered language (e.g. a JS project with no
