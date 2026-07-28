@@ -766,16 +766,18 @@ not have.
 
 ### Discover the real test-run command
 
-Reuse the discovery already done in "Discover the test project's real
-conventions" — do not re-scan from scratch.
+"Discover the test project's real conventions" earlier only captured
+feature/page/locator/step-def layout — it never looked up a test-run
+command or runner-config path. Look it up now, once:
 
 ```bash
 cat package.json 2>/dev/null | grep -A10 '"scripts"'
+ls wdio.conf.js wdio.conf.ts playwright.config.ts 2>/dev/null
 ```
 
-Identify the real test script (e.g. `test`, `test:mobile`) and the
-discovered runner config (wdio/playwright conf path from earlier
-discovery). Filter it to just the freshly-generated feature:
+Identify the real test script (e.g. `test`, `test:mobile`) from the
+`scripts` block, and the real runner config file if one of the above
+exists. Filter it to just the freshly-generated feature:
 - The discovered config supports `--spec=<path>` → use
   `--spec=$FEATURE_DIR/<MODULE>.feature`.
 - It doesn't → use `--tags=@<MODULE>` (the Scenario generated in "Generate
