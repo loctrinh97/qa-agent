@@ -758,6 +758,57 @@ After writing, set `STEP_FILE` to the file just written/merged, then run:
 A parse error → fix it now, re-run the check until it's clean, before
 ending this section.
 
+## Run smoke test (optional)
+
+Skip this entire section when `RUN_FLAG=false` (the default) — most
+CucumberStudio-fetched scenarios need a live device/browser this box may
+not have.
+
+### Discover the real test-run command
+
+Reuse the discovery already done in "Discover the test project's real
+conventions" — do not re-scan from scratch.
+
+```bash
+cat package.json 2>/dev/null | grep -A10 '"scripts"'
+```
+
+Identify the real test script (e.g. `test`, `test:mobile`) and the
+discovered runner config (wdio/playwright conf path from earlier
+discovery). Filter it to just the freshly-generated feature:
+- The discovered config supports `--spec=<path>` → use
+  `--spec=$FEATURE_DIR/<MODULE>.feature`.
+- It doesn't → use `--tags=@<MODULE>` (the Scenario generated in "Generate
+  the feature file" carries an `@<MODULE>` tag for exactly this purpose;
+  add it there now if this section finds it's missing).
+
+### Retry — per step, not per run
+
+Run the filtered command.
+
+- **Pass** → proceed to "Auto-un-disable the feature".
+- **Fail on a specific step**, and the failure is a locator/element-not-
+  found error:
+  - Re-groundable from a real source (re-read the real file if
+    `SELECTOR_SOURCE=source` — it may have changed since the scan — or
+    inspect a live app/browser via Appium/Playwright MCP if a live
+    connection is available) → update that one `$LOCATOR_DIR` entry
+    (merge, never overwrite the whole file), retry the SAME step. Up to 3
+    heal attempts for that step specifically — a step that needed 2
+    attempts doesn't reduce the budget for the step after it; each step
+    gets its own fresh 3-attempt budget. 3 attempts on one step still
+    failing → stop, print the runner output tail, leave it to the human.
+  - Not re-groundable (no real source to check) → stop immediately (not
+    counted against the 3-attempt budget — a hard stop, not a retry),
+    print the runner output tail, leave it to the human. Never guess a
+    replacement selector.
+- **Fail for a non-locator reason** (timeout, environment, logic) → retry
+  unchanged, counted against that step's 3-attempt budget.
+
+Record for the Report: retry counts, which locator(s) were healed and
+from what source, final pass/fail, and the failing step + output tail if
+still failing.
+
 ## Report
 
 ```
