@@ -1,6 +1,6 @@
 ---
 name: add-mcp
-description: Add an MCP server to this plugin's mcpServers config from a curated catalog of verified packages (playwright, github, appium, azure-devops, jira, cucumberstudio). Never invents package names — only the catalog below.
+description: Add an MCP server to the current project's .mcp.json from a curated catalog of verified packages (playwright, github, appium, azure-devops, jira, cucumberstudio). Never invents package names — only the catalog below. Writes to the project, not the plugin, so filled-in credentials survive every future plugin update.
 argument-hint: "[playwright|github|appium|azure-devops|jira|cucumberstudio]"
 ---
 
@@ -10,6 +10,13 @@ The catalog (package names, args, env placeholders) and all file-writing
 logic live in `scripts/add-mcp.sh` — this command only drives the
 conversation around it. Never reimplement its logic inline; always call the
 script. Valid keys: `playwright github appium azure-devops jira cucumberstudio`.
+
+The script writes to `.mcp.json` in the current working directory (the
+user's own project root) — never into this plugin's own files. This is
+deliberate: `.mcp.json` is outside anything a plugin update/reinstall
+touches, so a real credential the user fills in survives every future
+version bump. Run this command from the project root, not from inside the
+plugin's own repo.
 
 ## 1. Resolve which entry
 
@@ -27,9 +34,12 @@ script. Valid keys: `playwright github appium azure-devops jira cucumberstudio`.
 
 ## 3. Dry run
 
-Run (from the plugin root):
+Run from the project (this resolves the script's own absolute path via
+`${CLAUDE_PLUGIN_ROOT}`, so it works no matter what directory the user is
+in — never call it as a bare relative `scripts/add-mcp.sh`, that only
+works by accident if the cwd happens to be the plugin's own directory):
 ```bash
-bash scripts/add-mcp.sh <key> [--org <org-name>]
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/add-mcp.sh" <key> [--org <org-name>]
 ```
 
 - If it exits non-zero because the entry already exists, it prints the
@@ -47,8 +57,8 @@ confirmation before writing. If declined, stop — no files touched.
 
 On confirmation, run:
 ```bash
-bash scripts/add-mcp.sh <key> [--org <org-name>] --apply [--force]
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/add-mcp.sh" <key> [--org <org-name>] --apply [--force]
 ```
 (include `--force` only if this is an intentional overwrite, per step 3).
 Report its output to the user as-is (it already includes the
-placeholder/git/reload reminders).
+placeholder/git-exclude/reload reminders).

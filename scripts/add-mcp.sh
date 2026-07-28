@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-# Add an MCP server entry to .claude-plugin/plugin.json's mcpServers block,
+# Add an MCP server entry to the CURRENT PROJECT's .mcp.json (project root),
 # from a fixed catalog of verified packages. Never invents package names.
+#
+# .mcp.json lives in the user's own project, not inside this plugin's
+# installed files — so it survives every future plugin version bump/update.
+# Filled-in real secrets never need to be re-entered after an upgrade.
 #
 # Usage:
 #   add-mcp.sh <key> [--org <org-name>]              dry run — prints what would be added
@@ -10,8 +14,7 @@
 # Valid keys: playwright github appium azure-devops jira cucumberstudio
 set -euo pipefail
 
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PLUGIN_JSON="$DIR/.claude-plugin/plugin.json"
+MCP_JSON="$PWD/.mcp.json"
 
 KEY="${1:-}"
 shift || true
@@ -60,23 +63,22 @@ case "$KEY" in
     ;;
 esac
 
-if [[ ! -f "$PLUGIN_JSON" ]]; then
-  echo "plugin.json not found at $PLUGIN_JSON" >&2
-  exit 1
-fi
-
 EXISTS="$(python3 -c "
-import json
-with open('$PLUGIN_JSON') as f:
-    d = json.load(f)
-print('yes' if '$KEY' in d.get('mcpServers', {}) else 'no')
+import json, os
+path = '$MCP_JSON'
+if not os.path.exists(path):
+    print('no')
+else:
+    with open(path) as f:
+        d = json.load(f)
+    print('yes' if '$KEY' in d.get('mcpServers', {}) else 'no')
 ")"
 
 if [[ "$EXISTS" == "yes" && "$FORCE" != "true" ]]; then
-  echo "mcpServers.\"$KEY\" already exists in plugin.json:"
+  echo "mcpServers.\"$KEY\" already exists in .mcp.json:"
   python3 -c "
 import json
-with open('$PLUGIN_JSON') as f:
+with open('$MCP_JSON') as f:
     d = json.load(f)
 print(json.dumps(d['mcpServers']['$KEY'], indent=2))
 "
@@ -85,14 +87,14 @@ print(json.dumps(d['mcpServers']['$KEY'], indent=2))
   exit 1
 fi
 
-echo "Add MCP server \"$KEY\" to .claude-plugin/plugin.json:"
+echo "Add MCP server \"$KEY\" to .mcp.json (project root: $PWD):"
 python3 -c "
 import json
 print(json.dumps({'$KEY': json.loads('''$ENTRY''')}, indent=2, ensure_ascii=False))
 "
 echo
 echo "Placeholders like <YOUR_...> are NOT real credentials — fill them in by hand afterward, and never commit real tokens."
-echo "No version bump, no git commit."
+echo "This file lives in your project, not inside the plugin, so it survives every future plugin version bump/update — you will not need to re-add this MCP server or re-enter its credentials again."
 
 if [[ "$KEY" == "github" ]]; then
   echo
@@ -106,15 +108,31 @@ if ! $APPLY; then
 fi
 
 python3 -c "
-import json
-path = '$PLUGIN_JSON'
-with open(path) as f:
-    d = json.load(f)
+import json, os
+path = '$MCP_JSON'
+if os.path.exists(path):
+    with open(path) as f:
+        d = json.load(f)
+else:
+    d = {}
 d.setdefault('mcpServers', {})['$KEY'] = json.loads('''$ENTRY''')
 with open(path, 'w') as f:
     json.dump(d, f, indent=2, ensure_ascii=False)
     f.write('\n')
 "
 
+GIT_DIR="$(git rev-parse --git-dir 2>/dev/null || true)"
+if [[ -n "$GIT_DIR" ]]; then
+  EXCLUDE_FILE="$GIT_DIR/info/exclude"
+  mkdir -p "$(dirname "$EXCLUDE_FILE")"
+  touch "$EXCLUDE_FILE"
+  if ! grep -qxF ".mcp.json" "$EXCLUDE_FILE" 2>/dev/null; then
+    echo ".mcp.json" >> "$EXCLUDE_FILE"
+    echo
+    echo "Added .mcp.json to .git/info/exclude (local-only — never touches your tracked .gitignore). It won't show up in git status and can't be committed by accident."
+  fi
+fi
+
 echo
-echo "Done. No git command was run — review with git status/git diff and commit yourself."
+echo "Done. No git command was run — review with git status/git diff yourself if you want to confirm."
+echo "Restart Claude Code (or start a new session) in this project for the new MCP server to connect — .mcp.json changes aren't picked up by a running session."
