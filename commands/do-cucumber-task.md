@@ -874,12 +874,69 @@ just the freshly-generated feature:
   set that `RUN_COMMAND` (or `RUN_COMMAND_<PLATFORM>`) to `not determined
   — no test script or runner config found`.
 
+## Prepare the smoke-run environment (mobile cross-platform only)
+
+Skip this entire section when `RUN_FLAG=false`, or `PLATFORMS_TO_RUN` is
+unset (non-mobile, or no platform-specific wdio config was found —
+nothing to prepare, "Run smoke test" below handles the single-config case
+exactly as before this round). Runs once per platform in
+`PLATFORMS_TO_RUN`, in order, immediately before that platform's own
+live-verify pass and real smoke-test run below.
+
+### Appium
+
+```bash
+curl -s -o /dev/null -w "%{http_code}" http://localhost:4723/status 2>/dev/null
+```
+(use the real port from the discovered wdio config if it specifies a
+non-default one). Response is not `200` → start it in background, no ask
+first — this is cheap and low-risk:
+```bash
+appium > /tmp/appium-<platform>.log 2>&1 &
+```
+Poll the same status check for a few seconds until it responds, then
+proceed.
+
+### Device / emulator
+
+Check whether a device is already booted for this platform (`adb
+devices` for Android, `xcrun simctl list devices booted` for iOS). None
+booted → ask before booting, this is a heavier and more disruptive action
+than starting Appium: "No <platform> device/emulator is booted. Boot the
+default device from wdio.<platform>.conf.js (<device name from the
+config>)? Reply: yes / no." Wait for the reply.
+- `yes` → boot it (the real platform-appropriate command), wait until
+  ready.
+- `no` → skip this platform for this run, note why in the Report,
+  continue to the next platform in `PLATFORMS_TO_RUN`.
+
+### App bundle / APK
+
+Check the app path the discovered config points at exists on disk (e.g.
+`data/thanos.apk` for Android, the `.app`/`.ipa` path for iOS). Missing →
+skip this platform for this run, note why in the Report (e.g. "Android
+skipped — data/thanos.apk not found"), continue to the next platform in
+`PLATFORMS_TO_RUN`.
+
+### No teardown
+
+Never stop Appium and never shut down a device/emulator this section
+started — not at the end of this run, not on failure, not ever. The user
+manages their own environment lifecycle across a session of multiple
+`/do-cucumber-task` runs; tearing down here would force an expensive
+re-boot on every next invocation.
+
 ## Run smoke test (optional)
 
 Skip this entire section when `RUN_FLAG=false` (the default) — most
 CucumberStudio-fetched scenarios need a live device/browser this box may
-not have. `RUN_COMMAND` above was already resolved regardless of
-`RUN_FLAG` — only the actual execution below is gated.
+not have. `RUN_COMMAND`/`RUN_COMMAND_<PLATFORM>` above was already
+resolved regardless of `RUN_FLAG` — only the actual execution below is
+gated. When `PLATFORMS_TO_RUN` is set (mobile cross-platform), this
+section runs once per platform in `PLATFORMS_TO_RUN`, in order, for every
+platform not skipped in "Prepare the smoke-run environment" above; when
+it's unset, this section runs exactly once, exactly as before this
+round.
 
 ### Retry — per step, not per run
 
