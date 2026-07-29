@@ -533,6 +533,49 @@ If a locators file already exists for this module, add new entries for any
 new element referenced by the feature file; leave existing entries
 untouched.
 
+### Cross-platform locator-key parity check (mobile, discovered convention only)
+
+Applies only when ALL of: `PLATFORM=mobile`, `CONVENTION=discovered`, and
+`$LOCATOR_DIR` contains exactly 2 files whose names contain `android` and
+`ios` (case-insensitive) — the platform-split signal. In every other case
+(frontend, backend, default convention, a single combined mobile file,
+more/fewer than 2 matching files), skip this subsection entirely — no
+prompt, no Report line beyond "not applicable".
+
+```bash
+ls "$LOCATOR_DIR" | grep -i "android"
+ls "$LOCATOR_DIR" | grep -i "ios"
+```
+
+3+ files match this naming pattern (e.g. a stray backup file) → ambiguous
+which 2 are the real pair, skip this subsection entirely rather than
+guessing.
+
+Read the current module's key set from both files (everything nested
+under the module's own top-level key, e.g. `loginPage`, in both files —
+not just the keys added in this run, so a pre-existing asymmetry from an
+earlier session is also caught) and diff them.
+
+- A key present in both → no output, no prompt.
+- A key present in only one → ask immediately: `"<key>" exists only in
+  <platform>.json for this module — is that intentional (platform-
+  specific element), or did generation miss the other platform?` Wait for
+  the reply.
+  - Intentional → record as a deliberate platform-only key. No file
+    write.
+  - Missing → generate the entry for the missing platform now, using the
+    exact same sourcing rules as above (a real grounded value from the
+    resolved selector source if available, else the same `"TODO:
+    unverified — <element description>"` marker — never invent a
+    plausible-looking selector). Merge it into that file (never overwrite
+    the whole file).
+  - Reply is ambiguous or declined → ask once more; still ambiguous →
+    record it as unresolved platform-specific and note the ambiguity in
+    the Report, rather than writing an unsolicited entry.
+- Never re-ask about a key that already exists in both files with the
+  same name — this check is purely about asymmetry, not selector-value
+  correctness.
+
 ## Generate the page object / screen object / API client
 
 Branch on `CONVENTION` (from "Discover the test project's real
@@ -837,6 +880,7 @@ Selector source: <real source file | scanned docs | live Playwright | live Appiu
 Wording discrepancies fixed: <list, or "none">
 Page object / Screen / API client: <path>
 Locators: <path, or "not applicable (backend)">
+Locator parity: <n>/<total> keys matched | <n> platform-specific (<list, or "none">) | <n> gap(s) fixed (<list, or "none">) | not applicable (not a platform-split mobile project)
 Selectors/endpoints grounded: <n>/<total>
 TODO stubs remaining: <n> (method/entry/step names listed, or "none")
 Step definitions: <path>
