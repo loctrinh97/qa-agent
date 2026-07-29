@@ -1232,6 +1232,7 @@ Steps auto-supplemented (technical precondition only): <list, or "none">
 Smoke run: <not run | passed (n heal attempts: <list>) | failed — <reason: locator cap (3) reached | platform heal-budget (5) exhausted | shared-code bug filed (file:line, @fix_* tag) | hard stop — no source to heal from>: <tail output> | see per-platform breakdown below>
 Feature tag: <@disable removed | @disable kept — reason>
 Known issues logged: <n> shared-code bug(s) (<list file:line, or "none">), <n> locator drift(s) (<list key, or "none">)
+MailHog OTP: <reused existing helper <path> | scaffolded new (MAILHOG_BASE_URL=<value>) | not applicable>
 
 If a discovered convention was used: verify your existing runner config
 actually picks up these new files (e.g. its feature-file glob) — this
@@ -1295,3 +1296,8 @@ before this round.
   when found — this is the one place this command infers rather than
   asking. It does NOT apply to selector wording, real selectors, real
   endpoints, or business content, which are still never guessed.
+- A step requiring OTP retrieval always searches for an existing
+  MailHog+OTP helper before scaffolding a new one — never duplicate an
+  existing API client method, extraction method, or step binding. Never
+  invent a recipient email, MailHog base URL, or OTP code shape; ask once
+  when genuinely missing/ambiguous.
