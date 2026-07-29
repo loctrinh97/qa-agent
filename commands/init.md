@@ -412,7 +412,9 @@ see its own entry below; every other file follows the rule above exactly.
   `git add`, `git commit`, `git push`, or any other git command that
   mutates history, on its own initiative. Generate/edit files, then stop
   and let the human review with `git status` / `git diff` and commit
-  themselves, on their own terms and timing."
+  themselves, on their own terms and timing. If explicitly asked to
+  commit, never append the '🤖 Generated with Claude Code' or
+  'Co-Authored-By: Claude' attribution lines to the commit message."
 
 **`.claude/docs/architecture.md`** — layers present (test runner, page/screen
 object layer, fixtures, helpers, reporter, etc. — only the ones that actually
