@@ -823,9 +823,16 @@ suffixed-only naming convention, so both must be checked on their own
 merits, not inferred from the other's result:
 
 ```bash
-ls wdio.ios.conf.js 2>/dev/null || ls wdio.ios*.conf.js 2>/dev/null
-ls wdio.android.conf.js 2>/dev/null || ls wdio.android*.conf.js 2>/dev/null
+ls wdio.ios.conf.js 2>/dev/null || find . -maxdepth 1 -name "wdio.ios*.conf.js" 2>/dev/null
+ls wdio.android.conf.js 2>/dev/null || find . -maxdepth 1 -name "wdio.android*.conf.js" 2>/dev/null
 ```
+(the fallback uses `find -name` rather than a bare shell glob — under zsh,
+an unquoted glob that matches nothing aborts word-expansion and prints
+`zsh: no matches found` even with `2>/dev/null`, since that's a shell
+parse-time error, not the command's own stderr; `find -name` takes the
+pattern as a literal argument and matches internally, so it stays silent
+and clean when nothing matches. This is the same class of zsh-glob
+sandbox quirk documented in this plan's Global Constraints.)
 
 For each platform:
 - Plain file (`wdio.<platform>.conf.js`) exists → use it directly.
