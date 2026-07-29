@@ -999,12 +999,21 @@ platform's usage never reduces the other's):
       connection is available) → update that one `$LOCATOR_DIR` entry
       for the CURRENT platform (merge, never overwrite the whole file),
       retry. This locator's own attempt count goes up by one; so does the
-      platform's total. Either cap reached → stop healing THIS locator,
-      but other still-under-budget locators in the same run may still be
-      retried if a later failure implicates them. Both caps for this
-      locator exhausted and it's still failing → stop the whole
-      platform's run, print the runner output tail, leave it to the
-      human.
+      platform's total.
+      - Platform total reaches 5 → stop the whole platform's run
+        immediately, regardless of which locator triggered it — no
+        budget remains for any locator this run. Print the runner output
+        tail, leave it to the human.
+      - Platform total still under 5, but THIS locator's own count
+        reaches 3 and it's still failing → stop the whole platform's
+        run — this specific locator cannot be healed further within its
+        own budget. Print the runner output tail, leave it to the human.
+      - Neither cap reached yet → retry this same locator again.
+
+      (A locator that healed successfully within budget doesn't block a
+      DIFFERENT locator encountered later in the same run — each new
+      locator starts its own fresh 3-attempt count; only the shared
+      platform total carries forward across all of them.)
     - Not re-groundable (no real source to check) → stop the whole
       platform's run immediately (not counted against either budget — a
       hard stop, not a retry), print the runner output tail, leave it to
