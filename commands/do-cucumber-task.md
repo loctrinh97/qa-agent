@@ -971,32 +971,82 @@ platform not skipped in "Prepare the smoke-run environment" above; when
 it's unset, this section runs exactly once, exactly as before this
 round.
 
-### Retry — per step, not per run
+### Retry — per unique locator, not per step
 
-Run the filtered command.
+Run the filtered command (for `PLATFORMS_TO_RUN` cases, the current
+platform's `RUN_COMMAND_<PLATFORM>`).
 
-- **Pass** → proceed to "Auto-un-disable the feature".
-- **Fail on a specific step**, and the failure is a locator/element-not-
-  found error:
-  - Re-groundable from a real source (re-read the real file if
-    `SELECTOR_SOURCE=source` — it may have changed since the scan — or
-    inspect a live app/browser via Appium/Playwright MCP if a live
-    connection is available) → update that one `$LOCATOR_DIR` entry
-    (merge, never overwrite the whole file), retry the SAME step. Up to 3
-    heal attempts for that step specifically — a step that needed 2
-    attempts doesn't reduce the budget for the step after it; each step
-    gets its own fresh 3-attempt budget. 3 attempts on one step still
-    failing → stop, print the runner output tail, leave it to the human.
-  - Not re-groundable (no real source to check) → stop immediately (not
-    counted against the 3-attempt budget — a hard stop, not a retry),
-    print the runner output tail, leave it to the human. Never guess a
-    replacement selector.
-- **Fail for a non-locator reason** (timeout, environment, logic) → retry
-  unchanged, counted against that step's 3-attempt budget.
+Two independent budgets apply for the CURRENT platform's run only (an
+iOS run and an Android run each get their own full budgets — a
+platform's usage never reduces the other's):
+- **Per-locator cap:** 3 heal attempts for any single locator.
+- **Per-platform cap:** 5 total heal attempts across every locator in
+  this platform's run, whichever is hit first stops further healing for
+  this platform.
 
-Record for the Report: retry counts, which locator(s) were healed and
-from what source, final pass/fail, and the failing step + output tail if
-still failing.
+- **Pass** → proceed to "Auto-un-disable the feature" (or the next
+  platform in `PLATFORMS_TO_RUN`, if one remains).
+- **Fail on a specific step** — read the failure's stack trace and
+  extract the file:line it originates from. Compare against the set of
+  files THIS run wrote or merged this session (the step-def file from
+  "Generate step definitions", the page/screen object from "Generate the
+  page object / screen object / API client", the locator file from
+  "Generate the locator/endpoint file"):
+  - **Inside that set, and it's a locator/element-not-found error:**
+    - Re-groundable from a real source (re-read the real file if
+      `SELECTOR_SOURCE=source` — it may have changed since the scan — or
+      inspect a live app/browser via Appium/Playwright MCP if a live
+      connection is available) → update that one `$LOCATOR_DIR` entry
+      for the CURRENT platform (merge, never overwrite the whole file),
+      retry. This locator's own attempt count goes up by one; so does the
+      platform's total. Either cap reached → stop healing THIS locator,
+      but other still-under-budget locators in the same run may still be
+      retried if a later failure implicates them. Both caps for this
+      locator exhausted and it's still failing → stop the whole
+      platform's run, print the runner output tail, leave it to the
+      human.
+    - Not re-groundable (no real source to check) → stop the whole
+      platform's run immediately (not counted against either budget — a
+      hard stop, not a retry), print the runner output tail, leave it to
+      the human. Never guess a replacement selector.
+  - **Inside that set, but not a locator error** (timeout, generic
+    assertion failure in this run's own generated code, etc.) → retry
+    unchanged, counted against the platform's total budget only (no
+    single locator to attribute it to).
+  - **Outside that set** (the failure originates in a file this run did
+    NOT write or merge — a pre-existing shared step, base page class, or
+    other existing code) → **shared-code-bug flow**, not the locator-heal
+    flow above:
+    1. Read the specific file:line, describe the bug in plain terms (what
+       the code does, why it's failing here).
+    2. Ask the user: `Found what looks like a pre-existing bug in
+       <file>:<line> — <description>. Reply: a — file it (note in Report
+       + tag Scenario @fix_<short-description>), or b — generate a
+       Gherkin-only workaround using existing shared steps`. Wait for the
+       reply.
+    3. **Reply `a`** → record the file/line/description in the Report,
+       add an `@fix_<short-description>` tag to the Scenario in
+       `$FEATURE_DIR/<MODULE>.feature`. This platform's run is marked
+       failed — the bug is filed, not worked around.
+    4. **Reply `b`** → rewrite ONLY the Given/When/Then sequence in
+       `$FEATURE_DIR/<MODULE>.feature`, composed entirely from steps that
+       already exist elsewhere in the discovered step-def directory (e.g.
+       splitting one buggy high-level step into several already-existing
+       finer-grained steps, or inserting an existing generic wait step if
+       one exists in the shared step library). Never create new step-def
+       code, never touch the file with the bug. Then retry this
+       platform's run with the rewritten sequence — this retry is NOT
+       counted against either heal budget, since no locator was healed;
+       it's a one-time structural change. No viable existing-step
+       composition exists → automatically fall back to the `a` flow
+       above, and tell the user why no workaround could be composed.
+    5. Repeat independently if a LATER step in the same scenario also
+       hits a shared-code bug.
+
+Record for the Report (per platform): retry counts against each budget,
+which locator(s) were healed and from what source, any shared-code bug
+found (file:line, description, which option was taken), final pass/fail,
+and the failing step + output tail if still failing.
 
 ## Auto-un-disable the feature
 
