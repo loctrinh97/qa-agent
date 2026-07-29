@@ -1066,11 +1066,20 @@ feature file").
   `@disable`, state which step(s) are stubbed and why in the Report.
 - `RUN_FLAG=false` and no TODO-stub was left → remove `@disable` (no run
   evidence exists, but nothing is known to be missing either).
-- `RUN_FLAG=true` and "Run smoke test" passed (with or without heals) →
-  remove `@disable`.
-- `RUN_FLAG=true` and "Run smoke test" is still failing after exhausting
-  a step's 3-attempt budget, or hit a hard stop (no source to heal from)
-  → keep `@disable`, state which step failed and why in the Report.
+- `RUN_FLAG=true`, `PLATFORMS_TO_RUN` unset (non-mobile, or mobile with
+  only one platform config) and "Run smoke test" passed (with or without
+  heals) → remove `@disable`.
+- `RUN_FLAG=true`, `PLATFORMS_TO_RUN` set (mobile cross-platform) and
+  EVERY platform in `PLATFORMS_TO_RUN` passed this run → remove
+  `@disable`. A platform skipped in "Prepare the smoke-run environment"
+  (missing app bundle, declined device boot, unresolved config ambiguity)
+  counts the same as a failed platform here — it does not count as
+  passed, and does not exempt itself from the "every platform" rule.
+- Any other case (a locator's or the platform's heal budget exhausted and
+  still failing, a hard stop, a shared-code bug filed via the `a` flow,
+  or at least one platform in `PLATFORMS_TO_RUN` failed or was skipped) →
+  keep `@disable`, state which platform(s) failed/were skipped and why in
+  the Report.
 
 ## Report
 
@@ -1089,7 +1098,7 @@ TODO stubs remaining: <n> (method/entry/step names listed, or "none")
 Step definitions: <path>
 Steps generated: <n> new / <n> reused (already covered)
 Steps auto-supplemented (technical precondition only): <list, or "none">
-Smoke run: <not run | passed (n heal attempts: <list>) | failed after 3 attempts on step "<step text>": <tail output>>
+Smoke run: <not run | passed (n heal attempts: <list>) | failed after 3 attempts on step "<step text>": <tail output> | see per-platform breakdown below>
 Feature tag: <@disable removed | @disable kept — reason>
 
 If a discovered convention was used: verify your existing runner config
@@ -1097,8 +1106,21 @@ actually picks up these new files (e.g. its feature-file glob) — this
 command does not modify runner configuration.
 
 Run it yourself:
-  <RUN_COMMAND>
+  <RUN_COMMAND, or RUN_COMMAND_IOS and RUN_COMMAND_ANDROID when PLATFORMS_TO_RUN was set>
 ```
+
+When `PLATFORMS_TO_RUN` was set this run (mobile cross-platform), append
+this breakdown to the Report above, one line per category, covering every
+platform in `PLATFORMS_TO_RUN`:
+```
+Platforms run: <list, e.g. "iOS, Android (both wdio configs found)">
+Environment: <per-platform: Appium state, device/emulator state, or "skipped — <reason>">
+Live-verify: <per-platform: n/n locators matched source | n corrected (list) | n unresolved (list)>
+Smoke run (per platform): <platform> — passed (n heal attempts) | failed — <reason, incl. shared-code-bug file:line + @fix_* tag if applicable> | skipped — <reason>
+```
+Omit this breakdown entirely when `PLATFORMS_TO_RUN` was never set — the
+single `Smoke run:` line above already covers that case exactly as
+before this round.
 
 ## Rules
 
@@ -1119,6 +1141,18 @@ Run it yourself:
 - Never overwrite an existing page object / screen object / API client /
   locators / step-definitions file wholesale — merge in new
   methods/entries/bindings, leave existing ones untouched.
+- Never edit a pre-existing/shared code file to work around a bug found
+  during a smoke run — the shared-code-bug workaround only ever rewrites
+  this module's own feature file's Given/When/Then sequence using steps
+  that already exist; file the bug (Report + `@fix_*` tag) instead of
+  patching shared code.
+- Never tear down Appium or a device/emulator this command starts during
+  a smoke run — the user manages their own environment lifecycle across
+  a session of multiple runs.
+- A live-verify locator check that resolves to a different value than the
+  source-grounded one is a real grounding source, not a guess — prefer it
+  and update the locator file; a locator that doesn't resolve at all is
+  flagged, never silently accepted.
 - Convention discovery (language, directory, locator file format, step-
   definition layout) uses best-effort matching from real existing files
   when found — this is the one place this command infers rather than
