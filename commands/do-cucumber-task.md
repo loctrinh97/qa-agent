@@ -1098,7 +1098,7 @@ TODO stubs remaining: <n> (method/entry/step names listed, or "none")
 Step definitions: <path>
 Steps generated: <n> new / <n> reused (already covered)
 Steps auto-supplemented (technical precondition only): <list, or "none">
-Smoke run: <not run | passed (n heal attempts: <list>) | failed after 3 attempts on step "<step text>": <tail output> | see per-platform breakdown below>
+Smoke run: <not run | passed (n heal attempts: <list>) | failed — <reason: locator cap (3) reached | platform heal-budget (5) exhausted | shared-code bug filed (file:line, @fix_* tag) | hard stop — no source to heal from>: <tail output> | see per-platform breakdown below>
 Feature tag: <@disable removed | @disable kept — reason>
 
 If a discovered convention was used: verify your existing runner config
