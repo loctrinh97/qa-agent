@@ -377,8 +377,7 @@ Write `$FEATURE_DIR/<MODULE>.feature` (using `$FEATURE_DIR` from "Discover
 the test project's real conventions" above):
 
 ```gherkin
-# Generated: <date> | Source: CucumberStudio — <cucumberstudio-url>
-# spec: specs/<NNN>-<MODULE>/spec.md
+# Source: CucumberStudio — <cucumberstudio-url>
 <UNVERIFIED-MARKER-LINE-IF-APPLICABLE>
 
 Feature: <scenario/folder title>
@@ -391,7 +390,7 @@ Feature: <scenario/folder title>
 ```
 
 If `SELECTOR_SOURCE=none` (from "Resolve the grounding/selector source"),
-the first line after the spec comment must be exactly:
+the first line after the Source comment must be exactly:
 ```
 # unverified — no selector source available
 ```
@@ -801,17 +800,14 @@ After writing, set `STEP_FILE` to the file just written/merged, then run:
 A parse error → fix it now, re-run the check until it's clean, before
 ending this section.
 
-## Run smoke test (optional)
-
-Skip this entire section when `RUN_FLAG=false` (the default) — most
-CucumberStudio-fetched scenarios need a live device/browser this box may
-not have.
-
-### Discover the real test-run command
+## Discover the real test-run command
 
 "Discover the test project's real conventions" earlier only captured
 feature/page/locator/step-def layout — it never looked up a test-run
-command or runner-config path. Look it up now, once:
+command or runner-config path. Look it up now, once, regardless of
+`RUN_FLAG` — this is a cheap, read-only lookup, not the smoke test itself,
+and the Report always shows the result so the user knows how to run the
+feature themselves even when `--run` wasn't used:
 
 ```bash
 cat package.json 2>/dev/null | grep -A10 '"scripts"'
@@ -820,12 +816,22 @@ ls wdio.conf.js wdio.conf.ts playwright.config.ts 2>/dev/null
 
 Identify the real test script (e.g. `test`, `test:mobile`) from the
 `scripts` block, and the real runner config file if one of the above
-exists. Filter it to just the freshly-generated feature:
+exists. Filter it to just the freshly-generated feature, and set
+`RUN_COMMAND` to the resulting full command string:
 - The discovered config supports `--spec=<path>` → use
   `--spec=$FEATURE_DIR/<MODULE>.feature`.
 - It doesn't → use `--tags=@<MODULE>` (the Scenario generated in "Generate
   the feature file" carries an `@<MODULE>` tag for exactly this purpose;
   add it there now if this section finds it's missing).
+- No real test script/runner config found at all → set
+  `RUN_COMMAND=not determined — no test script or runner config found`.
+
+## Run smoke test (optional)
+
+Skip this entire section when `RUN_FLAG=false` (the default) — most
+CucumberStudio-fetched scenarios need a live device/browser this box may
+not have. `RUN_COMMAND` above was already resolved regardless of
+`RUN_FLAG` — only the actual execution below is gated.
 
 ### Retry — per step, not per run
 
@@ -892,6 +898,9 @@ Feature tag: <@disable removed | @disable kept — reason>
 If a discovered convention was used: verify your existing runner config
 actually picks up these new files (e.g. its feature-file glob) — this
 command does not modify runner configuration.
+
+Run it yourself:
+  <RUN_COMMAND>
 ```
 
 ## Rules
