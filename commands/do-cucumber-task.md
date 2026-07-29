@@ -1088,10 +1088,15 @@ platform's usage never reduces the other's):
       platform's run immediately (not counted against either budget — a
       hard stop, not a retry), print the runner output tail, leave it to
       the human. Never guess a replacement selector.
-  - **Inside that set, but not a locator error** (timeout, generic
-    assertion failure in this run's own generated code, etc.) → retry
-    unchanged, counted against the platform's total budget only (no
-    single locator to attribute it to).
+  - **Inside that set, but not a locator error** (timeout, flaky wait,
+    generic assertion failure in THIS run's own generated step-def/page-
+    object code, etc.) → if the fix is grounded in the real failure
+    output (not a guess) and stays within a file this run wrote or
+    merged (e.g. lengthening a timeout the failure output shows was too
+    short, wrapping a flaky check in a retry), apply it directly to that
+    file and retry; otherwise retry unchanged. Either way, counted
+    against the platform's total budget only (no single locator to
+    attribute it to).
   - **Outside that set** (the failure originates in a file this run did
     NOT write or merge — a pre-existing shared step, base page class, or
     other existing code) → **shared-code-bug flow**, not the locator-heal
