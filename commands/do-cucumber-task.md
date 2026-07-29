@@ -1070,8 +1070,13 @@ locator drift correction (see "Live-verify locators" above) are logged to
 batched to Report time.
 
 If `.claude/docs/` or `known-issues.md` doesn't exist yet, create both
-(`mkdir -p .claude/docs` first). The file always has exactly these three
-top-level sections, in this order:
+(`mkdir -p .claude/docs` first). If the file already exists but predates
+this structure (a legacy file from an older `/init`, with no "Static
+scan"/"Shared-code bugs"/"Locator drift" headings at all) — treat its
+entire existing content as the "Static scan" section body unchanged, and
+append the "Shared-code bugs" and "Locator drift" headings fresh below it,
+rather than improvising a different restructuring. The file always has
+exactly these three top-level sections, in this order:
 ```
 # Known Issues
 
