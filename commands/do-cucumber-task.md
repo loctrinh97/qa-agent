@@ -1267,12 +1267,18 @@ feature file").
 - `RUN_FLAG=true`, `PLATFORMS_TO_RUN` unset (non-mobile, or mobile with
   only one platform config) and "Run smoke test" passed (with or without
   heals) → remove `@disable`.
-- `RUN_FLAG=true`, `PLATFORMS_TO_RUN` set (mobile cross-platform) and
-  EVERY platform in `PLATFORMS_TO_RUN` passed this run → remove
-  `@disable`. A platform skipped in "Prepare the smoke-run environment"
-  (missing app bundle, declined device boot, unresolved config ambiguity)
-  counts the same as a failed platform here — it does not count as
-  passed, and does not exempt itself from the "every platform" rule.
+- `RUN_FLAG=true`, `PLATFORMS_TO_RUN` set (mobile cross-platform), EVERY
+  platform in `PLATFORMS_TO_RUN` passed this run, AND the "Cross-platform
+  regression guard" above found nothing left to re-verify (no Round 2
+  needed, or Round 2 ran and passed clean) → remove `@disable`. A
+  platform skipped in "Prepare the smoke-run environment" (missing app
+  bundle, declined device boot, unresolved config ambiguity) counts the
+  same as a failed platform here — it does not count as passed, and does
+  not exempt itself from the "every platform" rule.
+- The "Cross-platform regression guard" hit the 2-round cap (still
+  unstable between platforms) → keep `@disable`, state this explicitly in
+  the Report — even though each platform's OWN last run showed a pass,
+  the two are not mutually consistent yet.
 - Any other case (a locator's or the platform's heal budget exhausted and
   still failing, a hard stop, a shared-code bug filed via the `a` flow,
   or at least one platform in `PLATFORMS_TO_RUN` failed or was skipped) →
@@ -1310,6 +1316,7 @@ Platforms run: <list, e.g. "iOS, Android (both wdio configs found)">
 Environment: <per-platform: Appium state, device/emulator state, or "skipped — <reason>">
 Live-verify: <per-platform: n/n locators matched source | n corrected (list) | n unresolved (list)>
 Smoke run (per platform): <platform> — passed (n heal attempts) | failed — <reason, incl. shared-code-bug file:line + @fix_* tag if applicable> | skipped — <reason>
+Cross-platform re-verify: not needed (no shared-file heals) | iOS re-verified after Android shared-file heal — passed clean | unstable after 2 rounds — manual intervention needed
 ```
 Omit this breakdown entirely when `PLATFORMS_TO_RUN` was never set — the
 single `Smoke run:` line above already covers that case exactly as
@@ -1376,3 +1383,9 @@ platform lines above), never appended after "Run it yourself".
   existing API client method, extraction method, or step binding. Never
   invent a recipient email, MailHog base URL, or OTP code shape; ask once
   when genuinely missing/ambiguous.
+- A heal applied while fixing a later platform (Android) that touches
+  shared code always triggers a Round 2 re-verify of any earlier platform
+  (iOS) that already passed — a mobile cross-platform feature is never
+  marked done from one platform's pass alone if shared code changed
+  afterward. Capped at 2 rounds total; still-unstable after that is a
+  reported failure, never a silent pass.
