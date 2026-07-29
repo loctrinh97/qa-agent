@@ -814,17 +814,47 @@ cat package.json 2>/dev/null | grep -A10 '"scripts"'
 ls wdio.conf.js wdio.conf.ts playwright.config.ts 2>/dev/null
 ```
 
-Identify the real test script (e.g. `test`, `test:mobile`) from the
-`scripts` block, and the real runner config file if one of the above
-exists. Filter it to just the freshly-generated feature, and set
-`RUN_COMMAND` to the resulting full command string:
-- The discovered config supports `--spec=<path>` → use
+### Mobile cross-platform detection
+
+If `PLATFORM=mobile`, before falling back to the generic lookup above,
+check for platform-specific wdio configs:
+
+```bash
+ls wdio.ios.conf.js wdio.android.conf.js 2>/dev/null
+```
+
+- Both exist → `PLATFORMS_TO_RUN="ios android"` (this exact order — iOS
+  always runs before Android in every later section, never the reverse,
+  never in parallel). Resolve `RUN_COMMAND_IOS` and `RUN_COMMAND_ANDROID`
+  independently, each filtered to the freshly-generated feature the same
+  way as "Resolve each RUN_COMMAND" below.
+- Only one exists → `PLATFORMS_TO_RUN` is that single platform; resolve
+  the one corresponding `RUN_COMMAND_<PLATFORM>`.
+- Neither plain file exists, but suffixed variants do (e.g.
+  `wdio.androidci.conf.js`, `wdio.androidemulators.conf.js`) → ask once
+  per platform that has only suffixed variants: "Multiple Android wdio
+  configs found: <list>. Which one should /do-cucumber-task use? Reply
+  with the filename." Wait for the reply, then treat the reply as if it
+  were that platform's plain config file for the rest of this command.
+- Neither exists at all for mobile → fall through to the generic lookup
+  above as a single-config case (unchanged from before this round;
+  `PLATFORMS_TO_RUN` is unset, the rest of this command behaves exactly
+  as it did before this round).
+
+### Resolve each RUN_COMMAND
+
+For each config resolved above (one for non-mobile or single-platform
+mobile, or two for iOS+Android), identify the real test script (e.g.
+`test`, `test:mobile`) from the `scripts` block, and filter the config to
+just the freshly-generated feature:
+- The config supports `--spec=<path>` → use
   `--spec=$FEATURE_DIR/<MODULE>.feature`.
 - It doesn't → use `--tags=@<MODULE>` (the Scenario generated in "Generate
   the feature file" carries an `@<MODULE>` tag for exactly this purpose;
   add it there now if this section finds it's missing).
-- No real test script/runner config found at all → set
-  `RUN_COMMAND=not determined — no test script or runner config found`.
+- No real test script/runner config found at all for a resolved config →
+  set that `RUN_COMMAND` (or `RUN_COMMAND_<PLATFORM>`) to `not determined
+  — no test script or runner config found`.
 
 ## Run smoke test (optional)
 
