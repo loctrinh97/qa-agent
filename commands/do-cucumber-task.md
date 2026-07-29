@@ -718,6 +718,10 @@ reported exception to "never invent scenario steps" (see Rules).
 
 ### Sourcing each binding
 
+A step whose real wording mentions OTP / verification code / email code is
+sourced differently — see "MailHog OTP retrieval" below instead of the
+locator-lookup flow that follows.
+
 For each element/action a step references, look up the entry in
 `$LOCATOR_DIR` (written in "Generate the locator/endpoint file"):
 
@@ -739,6 +743,63 @@ Given('...', async () => {
 List this step under "TODO stubs remaining" in the Report — the same
 field Phase C already populates for locators; step-def stubs are added to
 that same list, not a separate one.
+
+### MailHog OTP retrieval
+
+Applies only when a step's real CucumberStudio wording mentions OTP /
+verification code / email code — no inference beyond that wording.
+
+**Search for an existing helper first.** Search the discovered project
+(same repo already read during "Discover the test project's real
+conventions") for a method whose name contains both `OTP` and
+`MailHog`/`Mailhog` (case-insensitive), or a call site matching a MailHog
+API path (`/api/v2/search` or `/api/v2/messages` against a host containing
+`mailhog`):
+```bash
+grep -rniE "mailhog" --include="*.js" --include="*.ts" "$STEP_DIR" "$PAGE_DIR" 2>/dev/null | grep -iE "otp|api/v2"
+```
+- **Exactly one match** → reuse it: wire the new step definition to call
+  that existing method directly. Never generate a new API client method,
+  extraction method, or duplicate step — this is the same "never
+  duplicate, always reuse" rule already applied to locators and step
+  bindings elsewhere in this command.
+- **More than one match** (ambiguous which to reuse) → ask the user which
+  one to wire the new step to, same "ask once when ambiguous" pattern used
+  elsewhere in this command.
+- **No match** → scaffold new, below.
+
+**Scaffolding new** (only when nothing to reuse):
+
+1. **Resolve `MAILHOG_BASE_URL`**: check the project's existing shared
+   config file (the same file conventions like `${AUTH0_BASE_URL}` already
+   live in) for a `MAILHOG_BASE_URL` entry. Not found → ask the user once
+   ("What is this project's MailHog base URL?"), write it into that same
+   config file so a later run in the same project never asks again.
+2. **API client method** — `GET ${MAILHOG_BASE_URL}/api/v2/search?kind=to&query=<real recipient email>`.
+   The recipient email must come from real test data/fixtures/scenario
+   content — never invent it, same grounding rule as everything else this
+   command generates.
+3. **Extraction method** — from the search response, sort matching items
+   by timestamp descending (never assume the API's return order is
+   already sorted — MailHog does not expire old messages, so a stale
+   match from an earlier test run may otherwise be picked by mistake),
+   take the newest, extract the OTP via `\b\d{6}\b` against
+   `Content.Body` (a 6-digit numeric code is the default OTP shape — if
+   the scenario's real wording implies a different code shape, ground the
+   regex in that wording instead).
+4. **Step definition** — `"I get OTP code from mailhog and assign to
+   {string}"` (the real wording already found in use in this codebase's
+   MailHog convention) — calls the extraction method, sets the Gherkin
+   variable using the same variable-assignment convention already used by
+   other step bindings in this project.
+
+**Retry/timing**: MailHog may not have received the email yet at query
+time. Poll every 2 seconds, up to 30 seconds total, before treating it as
+"no matching email found" — a real, reported failure, never a guessed
+OTP.
+
+Record for the Report: whether an existing helper was reused (and its
+path) or a new one was scaffolded (and the `MAILHOG_BASE_URL` used).
 
 ### Format
 
