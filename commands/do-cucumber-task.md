@@ -1130,9 +1130,10 @@ platform's usage never reduces the other's):
        hits a shared-code bug.
 
 Record for the Report (per platform): retry counts against each budget,
-which locator(s) were healed and from what source, any shared-code bug
-found (file:line, description, which option was taken), final pass/fail,
-and the failing step + output tail if still failing.
+which locator(s) were healed and from what source, any grounded step-def/
+page-object fix applied (file, description), any shared-code bug found
+(file:line, description, which option was taken), final pass/fail, and
+the failing step + output tail if still failing.
 
 ### Cross-platform regression guard (Round 2 re-verify)
 
@@ -1141,8 +1142,9 @@ no-op for a single-platform or non-mobile run.
 
 **Classify every heal from this platform's run** (using the record
 already kept above — "which locator(s) were healed and from what
-source", any shared-code-bug file:line, and the workaround's rewritten
-Gherkin sequence):
+source", any grounded step-def/page-object fix applied, any
+shared-code-bug file:line, and the workaround's rewritten Gherkin
+sequence):
 - **Platform-exclusive**: a heal to the CURRENT platform's own
   `$LOCATOR_DIR` entry, but ONLY when `$LOCATOR_DIR` is platform-split
   (the same 2-file android/ios detection from "Cross-platform locator-key
