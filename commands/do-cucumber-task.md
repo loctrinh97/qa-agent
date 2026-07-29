@@ -1239,18 +1239,11 @@ Smoke run: <not run | passed (n heal attempts: <list>) | failed — <reason: loc
 Feature tag: <@disable removed | @disable kept — reason>
 Known issues logged: <n> shared-code bug(s) (<list file:line, or "none">), <n> locator drift(s) (<list key, or "none">)
 MailHog OTP: <reused existing helper <path> | scaffolded new (MAILHOG_BASE_URL=<value>) | not applicable>
-
-If a discovered convention was used: verify your existing runner config
-actually picks up these new files (e.g. its feature-file glob) — this
-command does not modify runner configuration.
-
-Run it yourself:
-  <RUN_COMMAND, or RUN_COMMAND_IOS and RUN_COMMAND_ANDROID when PLATFORMS_TO_RUN was set>
 ```
 
-When `PLATFORMS_TO_RUN` was set this run (mobile cross-platform), append
-this breakdown to the Report above, one line per category, covering every
-platform in `PLATFORMS_TO_RUN`:
+When `PLATFORMS_TO_RUN` was set this run (mobile cross-platform), insert
+this breakdown here, before "Run it yourself" below — one line per
+category, covering every platform in `PLATFORMS_TO_RUN`:
 ```
 Platforms run: <list, e.g. "iOS, Android (both wdio configs found)">
 Environment: <per-platform: Appium state, device/emulator state, or "skipped — <reason>">
@@ -1260,6 +1253,21 @@ Smoke run (per platform): <platform> — passed (n heal attempts) | failed — <
 Omit this breakdown entirely when `PLATFORMS_TO_RUN` was never set — the
 single `Smoke run:` line above already covers that case exactly as
 before this round.
+
+```
+If a discovered convention was used: verify your existing runner config
+actually picks up these new files (e.g. its feature-file glob) — this
+command does not modify runner configuration.
+
+Run it yourself:
+  <RUN_COMMAND, or RUN_COMMAND_IOS and RUN_COMMAND_ANDROID when PLATFORMS_TO_RUN was set>
+```
+
+"Run it yourself" is always the last thing printed in this Report — no
+narrative summary, heal/fix write-up, or file list belongs after it. If
+you want to explain what was healed or which files were touched, put that
+content earlier in the Report (e.g. folded into the `Smoke run:`/per-
+platform lines above), never appended after "Run it yourself".
 
 ## Rules
 
