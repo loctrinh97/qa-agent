@@ -1165,6 +1165,7 @@ Steps generated: <n> new / <n> reused (already covered)
 Steps auto-supplemented (technical precondition only): <list, or "none">
 Smoke run: <not run | passed (n heal attempts: <list>) | failed — <reason: locator cap (3) reached | platform heal-budget (5) exhausted | shared-code bug filed (file:line, @fix_* tag) | hard stop — no source to heal from>: <tail output> | see per-platform breakdown below>
 Feature tag: <@disable removed | @disable kept — reason>
+Known issues logged: <n> shared-code bug(s) (<list file:line, or "none">), <n> locator drift(s) (<list key, or "none">)
 
 If a discovered convention was used: verify your existing runner config
 actually picks up these new files (e.g. its feature-file glob) — this
@@ -1218,6 +1219,11 @@ before this round.
   source-grounded one is a real grounding source, not a guess — prefer it
   and update the locator file; a locator that doesn't resolve at all is
   flagged, never silently accepted.
+- A shared-code bug filed (option a) or a live-verify locator drift is
+  always logged to `.claude/docs/known-issues.md` (creating it and its
+  parent directory if missing, updating the matching entry if the same
+  file:line / locator+platform was seen before) — never a duplicate entry
+  for something already tracked.
 - Convention discovery (language, directory, locator file format, step-
   definition layout) uses best-effort matching from real existing files
   when found — this is the one place this command infers rather than
