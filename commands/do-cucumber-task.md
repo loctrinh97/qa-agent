@@ -1129,6 +1129,67 @@ which locator(s) were healed and from what source, any shared-code bug
 found (file:line, description, which option was taken), final pass/fail,
 and the failing step + output tail if still failing.
 
+### Cross-platform regression guard (Round 2 re-verify)
+
+Applies only when `PLATFORMS_TO_RUN` is set (mobile cross-platform) —
+no-op for a single-platform or non-mobile run.
+
+**Classify every heal from this platform's run** (using the record
+already kept above — "which locator(s) were healed and from what
+source", any shared-code-bug file:line, and the workaround's rewritten
+Gherkin sequence):
+- **Platform-exclusive**: a heal to the CURRENT platform's own
+  `$LOCATOR_DIR` entry, but ONLY when `$LOCATOR_DIR` is platform-split
+  (the same 2-file android/ios detection from "Cross-platform locator-key
+  parity check") — this cannot affect the other platform.
+- **Shared**: everything else a heal can touch — the step-definition
+  file, the page/screen object file, a Gherkin-only workaround rewrite
+  (it changes the feature file, read by every platform), or the locator
+  file itself when `$LOCATOR_DIR` is a single combined file (not
+  platform-split).
+
+Add every shared heal from this platform's run to a running
+`SHARED_FILES_TOUCHED` list, kept for the whole feature (not reset
+between platforms within the same round) — record WHICH platform
+contributed each entry (iOS's own heals here matter later only as
+Round-2 heals; they never trigger a Round 2 by themselves, since nothing
+runs after iOS within Round 1 that could invalidate it — only a LATER
+platform's shared heal can do that).
+
+**After the LAST platform in `PLATFORMS_TO_RUN` reaches pass/fail/skip**
+(this is "Round 1" — the ordinary sequential loop above, unchanged):
+- No entry in `SHARED_FILES_TOUCHED` came from a platform LATER than iOS
+  (either the list is empty, every entry is iOS's own, or Android never
+  ran at all — skipped or absent from `PLATFORMS_TO_RUN`) → nothing to
+  re-verify. Proceed to "Auto-un-disable the feature". (iOS's own Round-1
+  heals never need a Round 2 re-check of iOS itself — there is nothing to
+  have invalidated it.)
+- `SHARED_FILES_TOUCHED` has at least one entry from Android's Round 1
+  run AND iOS passed in Round 1 → **Round 2**: re-run iOS only, using
+  `RUN_COMMAND_IOS` directly — skip "Prepare the smoke-run environment"
+  and "Live-verify locators" again for iOS (its environment and locators
+  are unchanged; only shared code changed). Apply the same heal-budget
+  rules as Round 1, continuing from iOS's Round 1 counts (a platform's
+  5-total and 3-per-locator caps are NOT reset for Round 2 — they
+  represent the whole feature's healing effort on that platform, not one
+  round's).
+  - iOS passes clean in Round 2 (no heal needed, or only a
+    platform-exclusive heal) → stable. Proceed to "Auto-un-disable the
+    feature" with both platforms' results now mutually consistent.
+  - iOS needs a SHARED heal in Round 2 → the 2-round cap is reached. Stop
+    immediately — do not attempt a Round 3, do not re-run Android again.
+    Report: "cannot stabilize both platforms simultaneously after 2 sync
+    rounds — manual intervention needed." Keep `@disable`.
+  - iOS fails outright in Round 2 (heal budget exhausted, hard stop) →
+    treat iOS as failed for this run.
+- Android has a shared heal in `SHARED_FILES_TOUCHED` but iOS did NOT
+  pass in Round 1 (already failed/skipped there) → no Round 2 needed;
+  iOS's Round 1 result already stands and isn't being invalidated by
+  anything new.
+
+Record for the Report: whether Round 2 ran, its outcome, and — if the
+2-round cap was hit — which shared file(s) triggered it each time.
+
 ### Logging discoveries to `known-issues.md`
 
 Both a shared-code bug filed via the `a` flow above and a live-verify
