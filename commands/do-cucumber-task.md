@@ -926,6 +926,39 @@ manages their own environment lifecycle across a session of multiple
 `/do-cucumber-task` runs; tearing down here would force an expensive
 re-boot on every next invocation.
 
+## Live-verify locators (mobile cross-platform only)
+
+Skip this entire section when `RUN_FLAG=false`, or `PLATFORMS_TO_RUN` is
+unset. Runs once per platform in `PLATFORMS_TO_RUN`, in order, for every
+platform not skipped in "Prepare the smoke-run environment" above,
+immediately before that platform's own "Run smoke test" below.
+
+Source-grounded locators (from "Generate the locator/endpoint file") are
+a hypothesis, not a guarantee — the real build may not honor the exact
+selector the source code implies. This is a one-shot check against the
+real, running app before committing to a full smoke-test run.
+
+Execute the scenario's real Given/precondition steps for real (actual
+navigation via the freshly-generated step-defs — this is not a dry run).
+Once navigation completes, dump the live UI state (Appium page source)
+and check whether every locator this run generated for the CURRENT
+platform resolves against it:
+- Resolves, and matches the source-grounded value → no action.
+- Resolves, but with a DIFFERENT value than source-grounded → the live
+  value wins. Update that `$LOCATOR_DIR` entry for this platform (merge,
+  never overwrite the whole file) to the live value. Note the correction
+  in the Report.
+- Doesn't resolve at all → flag clearly in the Report (do not silently
+  continue as if it were fine) — this locator will very likely fail the
+  real smoke-test run below too, but this pass does not retry or heal it;
+  that's "Run smoke test"'s job.
+
+This pass is throwaway — it does not share an app/session state with the
+actual smoke-test run below. "Run smoke test" starts fresh; the Given
+steps run for real again there too. This keeps the two passes
+independent and simple to reason about, at the cost of running the
+precondition steps twice.
+
 ## Run smoke test (optional)
 
 Skip this entire section when `RUN_FLAG=false` (the default) — most
