@@ -817,27 +817,38 @@ ls wdio.conf.js wdio.conf.ts playwright.config.ts 2>/dev/null
 ### Mobile cross-platform detection
 
 If `PLATFORM=mobile`, before falling back to the generic lookup above,
-check for platform-specific wdio configs:
+resolve EACH platform independently — a plain config existing for one
+platform does not mean the other platform is absent, it may just use a
+suffixed-only naming convention, so both must be checked on their own
+merits, not inferred from the other's result:
 
 ```bash
-ls wdio.ios.conf.js wdio.android.conf.js 2>/dev/null
+ls wdio.ios.conf.js 2>/dev/null || ls wdio.ios*.conf.js 2>/dev/null
+ls wdio.android.conf.js 2>/dev/null || ls wdio.android*.conf.js 2>/dev/null
 ```
 
-- Both exist → `PLATFORMS_TO_RUN="ios android"` (this exact order — iOS
-  always runs before Android in every later section, never the reverse,
-  never in parallel). Resolve `RUN_COMMAND_IOS` and `RUN_COMMAND_ANDROID`
+For each platform:
+- Plain file (`wdio.<platform>.conf.js`) exists → use it directly.
+- Plain file missing, but suffixed variants exist (e.g.
+  `wdio.androidci.conf.js`, `wdio.androidemulators.conf.js`) → ask once
+  for that platform: "Multiple <platform> wdio configs found: <list>.
+  Which one should /do-cucumber-task use? Reply with the filename." Wait
+  for the reply, then treat the reply as if it were that platform's
+  plain config file for the rest of this command.
+- Neither plain nor any suffixed variant exists → that platform has no
+  config at all.
+
+Combine both platforms' results:
+- Both resolved (plain file or user-chosen suffixed variant) →
+  `PLATFORMS_TO_RUN="ios android"` (this exact order — iOS always runs
+  before Android in every later section, never the reverse, never in
+  parallel). Resolve `RUN_COMMAND_IOS` and `RUN_COMMAND_ANDROID`
   independently, each filtered to the freshly-generated feature the same
   way as "Resolve each RUN_COMMAND" below.
-- Only one exists → `PLATFORMS_TO_RUN` is that single platform; resolve
+- Only one resolved → `PLATFORMS_TO_RUN` is that single platform; resolve
   the one corresponding `RUN_COMMAND_<PLATFORM>`.
-- Neither plain file exists, but suffixed variants do (e.g.
-  `wdio.androidci.conf.js`, `wdio.androidemulators.conf.js`) → ask once
-  per platform that has only suffixed variants: "Multiple Android wdio
-  configs found: <list>. Which one should /do-cucumber-task use? Reply
-  with the filename." Wait for the reply, then treat the reply as if it
-  were that platform's plain config file for the rest of this command.
-- Neither exists at all for mobile → fall through to the generic lookup
-  above as a single-config case (unchanged from before this round;
+- Neither resolved at all → fall through to the generic lookup above as
+  a single-config case (unchanged from before this round;
   `PLATFORMS_TO_RUN` is unset, the rest of this command behaves exactly
   as it did before this round).
 
