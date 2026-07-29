@@ -947,7 +947,10 @@ platform resolves against it:
 - Resolves, but with a DIFFERENT value than source-grounded → the live
   value wins. Update that `$LOCATOR_DIR` entry for this platform (merge,
   never overwrite the whole file) to the live value. Note the correction
-  in the Report.
+  in the Report, and log/update the entry in `.claude/docs/known-issues.md`
+  per "Run smoke test"'s "Logging discoveries to known-issues.md"
+  subsection — the same rules apply here, keyed on
+  `(locator key, platform)`.
 - Doesn't resolve at all → flag clearly in the Report (do not silently
   continue as if it were fine) — this locator will very likely fail the
   real smoke-test run below too, but this pass does not retry or heal it;
