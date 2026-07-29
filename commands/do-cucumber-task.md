@@ -1035,8 +1035,10 @@ platform's usage never reduces the other's):
        reply.
     3. **Reply `a`** → record the file/line/description in the Report,
        add an `@fix_<short-description>` tag to the Scenario in
-       `$FEATURE_DIR/<MODULE>.feature`. This platform's run is marked
-       failed — the bug is filed, not worked around.
+       `$FEATURE_DIR/<MODULE>.feature`, and log/update the entry in
+       `.claude/docs/known-issues.md` per "Logging discoveries to
+       known-issues.md" below. This platform's run is marked failed — the
+       bug is filed, not worked around.
     4. **Reply `b`** → rewrite ONLY the Given/When/Then sequence in
        `$FEATURE_DIR/<MODULE>.feature`, composed entirely from steps that
        already exist elsewhere in the discovered step-def directory (e.g.
@@ -1056,6 +1058,66 @@ Record for the Report (per platform): retry counts against each budget,
 which locator(s) were healed and from what source, any shared-code bug
 found (file:line, description, which option was taken), final pass/fail,
 and the failing step + output tail if still failing.
+
+### Logging discoveries to `known-issues.md`
+
+Both a shared-code bug filed via the `a` flow above and a live-verify
+locator drift correction (see "Live-verify locators" above) are logged to
+`.claude/docs/known-issues.md`, immediately at discovery time — not
+batched to Report time.
+
+If `.claude/docs/` or `known-issues.md` doesn't exist yet, create both
+(`mkdir -p .claude/docs` first). The file always has exactly these three
+top-level sections, in this order:
+```
+# Known Issues
+
+## Static scan (from /init)
+<untouched by this command — /init's content, or "not determined — /init
+has not been run" if the file was just created>
+
+## Shared-code bugs (from /do-cucumber-task)
+<entries as below, or "none found yet">
+
+## Locator drift (from /do-cucumber-task live-verify)
+<entries as below, or "none found yet">
+```
+
+**Shared-code bug entry** (one `###` heading per unique `file:line`):
+```
+### <short-description> — <file>:<line>
+- First seen: <YYYY-MM-DD>
+- Description: <what the code does, why it's failing>
+- Tag: @fix_<short-description>
+- Also seen in: <module> (<platform>)
+```
+- New `file:line` → append a new `###` entry under "Shared-code bugs".
+- Same `file:line` as an existing entry → do NOT create a new entry;
+  append `, <module> (<platform>)` to that entry's "Also seen in" line
+  instead.
+
+**Locator drift entry** (one `###` heading per unique
+`(locator key, platform)` pair):
+```
+### <locator key> (<platform>)
+- First seen: <YYYY-MM-DD>
+- Source said: "<original source-grounded value>"
+- Live confirmed: "<latest live value>"
+- Also seen in: <module> (<YYYY-MM-DD>)
+```
+- New `(locator key, platform)` pair → append a new `###` entry under
+  "Locator drift". "Source said" is fixed to the value seen the first
+  time this pair was logged — never changes on a later update.
+- Same pair, SAME live value as the existing entry → append
+  `, <module> (<YYYY-MM-DD>)` to the existing "Also seen in" line only.
+- Same pair, DIFFERENT live value than the existing entry (drifted again)
+  → update "Live confirmed" to the new value, leave "Source said"
+  untouched, append a brand new "Also seen in" line for this occurrence
+  (do not merge it into the prior "Also seen in" line — the separate
+  lines preserve the drift history).
+
+Never edit the "Static scan" section — that belongs to `/init`; read past
+it to reach the other two sections.
 
 ## Auto-un-disable the feature
 
