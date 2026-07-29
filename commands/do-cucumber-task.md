@@ -749,14 +749,20 @@ that same list, not a separate one.
 Applies only when a step's real CucumberStudio wording mentions OTP /
 verification code / email code — no inference beyond that wording.
 
-**Search for an existing helper first.** Search the discovered project
-(same repo already read during "Discover the test project's real
-conventions") for a method whose name contains both `OTP` and
-`MailHog`/`Mailhog` (case-insensitive), or a call site matching a MailHog
-API path (`/api/v2/search` or `/api/v2/messages` against a host containing
+**Search for an existing helper first.** Search `$PAGE_DIR` only (the
+reusable method layer — never `$STEP_DIR`: an existing step binding there
+is tied to its own exact step text and is already handled by "Generate
+step definitions"'s outer already-bound check above, not a candidate
+"helper to reuse" for a NEW step with different wording; including
+`$STEP_DIR` here would surface that binding's own call site as a false
+second match every time one already exists, exactly what happens against
+this repo's own `sample/infinity-mobile-test-automation` project) for a
+method whose name contains both `OTP` and `MailHog`/`Mailhog`
+(case-insensitive), or a call site matching a MailHog API path
+(`/api/v2/search` or `/api/v2/messages` against a host containing
 `mailhog`):
 ```bash
-grep -rniE "mailhog" --include="*.js" --include="*.ts" "$STEP_DIR" "$PAGE_DIR" 2>/dev/null | grep -iE "otp|api/v2"
+grep -rniE "mailhog" --include="*.js" --include="*.ts" "$PAGE_DIR" 2>/dev/null | grep -iE "otp|api/v2"
 ```
 - **Exactly one match** → reuse it: wire the new step definition to call
   that existing method directly. Never generate a new API client method,
