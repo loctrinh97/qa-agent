@@ -393,7 +393,8 @@ mkdir -p .claude/docs
 
 For each file: if Mode B1's answer was `2` (merge) and the file already
 exists, skip it and note `⊘ Skipped <file> (already exists)`. Otherwise write
-it (Write tool).
+it (Write tool). `known-issues.md` is a partial exception under Overwrite —
+see its own entry below; every other file follows the rule above exactly.
 
 **`.claude/CLAUDE.md`** — must cover, grounded in B2's findings:
 - Framework/language overview (what you found, or "not determined")
@@ -453,10 +454,29 @@ found. "not determined" for anything not evidenced.
 **`.claude/docs/ci-cd.md`** — the actual pipeline found in B2 (triggers, jobs,
 how to read reports), or "not determined — no CI config found".
 
-**`.claude/docs/known-issues.md`** — flaky/skipped tests found (grep for
-`.skip(`, `.only(`, `xit(`, `@skip`, `@disabled`, or equivalent markers) with
-their reasons if stated in a comment; "not determined — none found" if the
-scan turns up nothing.
+**`.claude/docs/known-issues.md`** — three top-level sections, always:
+"Static scan (from /init)", "Shared-code bugs (from /do-cucumber-task)",
+"Locator drift (from /do-cucumber-task live-verify)". This command only
+ever writes the first section — the other two belong to
+`/do-cucumber-task`'s own runtime feedback (see that command's "Logging
+discoveries to known-issues.md" subsection).
+
+"Static scan" content: flaky/skipped tests found (grep for `.skip(`,
+`.only(`, `xit(`, `@skip`, `@disabled`, or equivalent markers) with their
+reasons if stated in a comment; "not determined — none found" if the scan
+turns up nothing.
+
+Under Overwrite (B1 answer `1`), do NOT blindly rewrite this file like the
+other 10: if it already exists, read it first and extract the "Shared-code
+bugs" and "Locator drift" sections verbatim (if present — an empty/missing
+section becomes "none found yet"). Regenerate only "Static scan" from this
+run's fresh scan, then write the file back with the regenerated "Static
+scan" followed by the extracted sections unchanged. If the file doesn't
+exist yet, write all three sections fresh, the latter two reading "none
+found yet".
+
+Under Merge (B1 answer `2`), this file follows the same skip-if-exists rule
+as every other file — no special handling needed.
 
 ### B5 — Report
 
