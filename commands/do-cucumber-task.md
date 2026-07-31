@@ -403,6 +403,60 @@ place).
 Never write raw selectors (CSS/XPath/testid strings) into any step —
 quoted text is UI copy only, verified or explicitly marked unverified.
 
+### Synchronization waits (anti-flakiness)
+
+Applies only when the discovered project already has a real, existing
+synchronization-wait step (found during "Discover the test project's
+real conventions" or a real step-def file read — e.g. a step like `The
+screen is fully loaded` backed by a real wait-for-load method).
+`CONVENTION=default`, or a discovered project with no such step → this
+entire subsection is a no-op — never invent a wait step that doesn't
+already exist in the project.
+
+**Trigger — narrowly scoped to avoid step bloat.** Insert the real
+wait step only after an action that genuinely changes screen state:
+a navigation, a login success/redirect, a network call that changes
+what's rendered, or an app dismiss/close/reopen. Never after an action
+that keeps the user on the SAME screen (filling a text field, selecting
+an option, scrolling) — most steps in a typical scenario are this kind
+and must NOT get a wait inserted.
+
+1. **Insert before the next verify/tap.** Never let a verify/tap run
+   immediately after a screen-state-changing action (as scoped above).
+2. **Prefer the real wait step over a fixed-duration pause step.** If
+   the project has both, use the wait step. Only fall back to a fixed
+   pause when no wait step exists in the project AND the wait is for a
+   genuinely unavoidable animation — keep it short.
+3. **`@app_reset` (cold-start) scenarios are the riskiest** — apply this
+   strictly right after a login step and right after an app-reopen step;
+   a cold-start login round-trip is slower and more variable than a warm
+   one, and default element-wait timeouts are more likely to be
+   exceeded.
+4. **One-directional internal consistency, never retroactive.** If a NEW
+   scenario being generated performs the same screen-state-changing
+   action as an EXISTING scenario already present in the same feature
+   file that already uses the wait step after it, the new scenario uses
+   it too. Never rewrite or retrofit an existing scenario's content to
+   add this — only new/merged content follows this rule.
+5. **Insert before a negative ("not displayed") assertion that follows a
+   dismissing tap** (Skip/Proceed/close) — the transition must complete
+   before the negative assertion, same as rule 1's general case.
+
+**Idempotency**: never insert a duplicate wait — if one already exists
+immediately between the state-changing action and the next verify/tap
+(from the original CucumberStudio wording, a prior merge, or an
+already-present scenario read for rule 4), do not insert a second one.
+
+**Ambiguity**: the discovered project has more than one candidate wait-
+step name used inconsistently across features → ask the user once which
+to standardize on for this module, same "ask once when ambiguous"
+pattern used elsewhere in this command.
+
+Every wait step inserted this way is a technical/no-business-meaning
+addition — list it under "Steps auto-supplemented" in the Report, the
+same field "Automation-only technical preconditions" already populates
+(never a new, separate reporting category).
+
 ## Determine the class name
 
 ```bash
