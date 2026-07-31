@@ -1,16 +1,16 @@
 ---
 name: do-cucumber-task
-description: Fetch one CucumberStudio scenario, ground it against this workspace's spec.md/scanned-source knowledge, verify its wording against real selectors when available, write/update specs/NNN-<module>/spec.md, generate `<module>.feature` at the project's real feature-file location, generate the grounded page object/screen object/API client (plus locators, for frontend/mobile), generate step definitions, and — with --run — smoke-test and auto-un-disable the feature.
-argument-hint: "<cucumberstudio-url> [--run]"
+description: Fetch one CucumberStudio scenario, ground it against this workspace's spec.md/scanned-source knowledge, verify its wording against real selectors when available, write/update specs/NNN-<module>/spec.md, generate `<module>.feature` at the project's real feature-file location, generate the grounded page object/screen object/API client (plus locators, for frontend/mobile), generate step definitions, and — by default — smoke-test and auto-un-disable the feature. Pass --no-run to skip the smoke test (e.g. no live device/browser/server available).
+argument-hint: "<cucumberstudio-url> [--no-run]"
 ---
 
 EXECUTE IMMEDIATELY.
 
 This converts one CucumberStudio scenario into a grounded spec.md +
 .feature file, the page object/screen object/API client (and locators,
-for frontend/mobile), and step definitions underneath it. With --run, it
+for frontend/mobile), and step definitions underneath it. By default, it
 also smoke-tests the freshly-generated feature and removes the @disable
-tag when it's genuinely ready.
+tag when it's genuinely ready — pass --no-run to skip the smoke test.
 
 ## Parse the CucumberStudio URL
 
@@ -18,7 +18,7 @@ Expected pattern: `https://studio.cucumberstudio.com/projects/<projectId>/test-p
 
 ```bash
 URL=$(echo "$ARGUMENTS" | awk '{print $1}')
-RUN_FLAG=$(echo "$ARGUMENTS" | grep -qw -- "--run" && echo "true" || echo "false")
+RUN_FLAG=$(echo "$ARGUMENTS" | grep -qw -- "--no-run" && echo "false" || echo "true")
 PROJECT_ID=$(echo "$URL" | grep -oE 'projects/[0-9]+' | grep -oE '[0-9]+')
 FOLDER_ID=$(echo "$URL" | grep -oE 'folders/[0-9]+' | grep -oE '[0-9]+')
 SCENARIO_ID=$(echo "$URL" | grep -oE 'scenarios/[0-9]+' | grep -oE '[0-9]+')
@@ -934,7 +934,7 @@ feature/page/locator/step-def layout — it never looked up a test-run
 command or runner-config path. Look it up now, once, regardless of
 `RUN_FLAG` — this is a cheap, read-only lookup, not the smoke test itself,
 and the Report always shows the result so the user knows how to run the
-feature themselves even when `--run` wasn't used:
+feature themselves even when `--no-run` was used:
 
 ```bash
 cat package.json 2>/dev/null | grep -A10 '"scripts"'
@@ -1091,9 +1091,9 @@ precondition steps twice.
 
 ## Run smoke test (optional)
 
-Skip this entire section when `RUN_FLAG=false` (the default) — most
-CucumberStudio-fetched scenarios need a live device/browser this box may
-not have. `RUN_COMMAND`/`RUN_COMMAND_<PLATFORM>` above was already
+Skip this entire section when `RUN_FLAG=false` (only when `--no-run` was
+passed) — use this when no live device/browser/server is available on
+this box. `RUN_COMMAND`/`RUN_COMMAND_<PLATFORM>` above was already
 resolved regardless of `RUN_FLAG` — only the actual execution below is
 gated. When `PLATFORMS_TO_RUN` is set (mobile cross-platform), this
 section runs once per platform in `PLATFORMS_TO_RUN`, in order, for every
