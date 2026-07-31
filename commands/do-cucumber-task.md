@@ -1389,6 +1389,7 @@ Step definitions: <path>
 Steps generated: <n> new / <n> reused (already covered)
 Steps auto-supplemented (technical precondition only): <list, or "none">
 Smoke run: <not run | passed (n heal attempts: <list>) | failed — <reason: locator cap (3) reached | platform heal-budget (5) exhausted | shared-code bug filed (file:line, @fix_* tag) | hard stop — no source to heal from>: <tail output> | see per-platform breakdown below>
+Opportunistic corrections (same screen): <n other locator(s) corrected: <list>, or "none">
 Feature tag: <@disable removed | @disable kept — reason>
 Known issues logged: <n> shared-code bug(s) (<list file:line, or "none">), <n> locator drift(s) (<list key, or "none">)
 MailHog OTP: <reused existing helper <path> | scaffolded new (MAILHOG_BASE_URL=<value>) | not applicable>
@@ -1402,6 +1403,7 @@ Platforms run: <list, e.g. "iOS, Android (both wdio configs found)">
 Environment: <per-platform: Appium state, device/emulator state, or "skipped — <reason>">
 Live-verify: <per-platform: n/n locators matched source | n corrected (list) | n unresolved (list)>
 Smoke run (per platform): <platform> — passed (n heal attempts) | failed — <reason, incl. shared-code-bug file:line + @fix_* tag if applicable> | skipped — <reason>
+Opportunistic corrections (per platform): <platform> — <n other locator(s) corrected: <list>, or "none">
 Cross-platform re-verify: not needed (no shared-file heals) | iOS re-verified after Android shared-file heal — passed clean | unstable after 2 rounds — manual intervention needed
 ```
 Omit this breakdown entirely when `PLATFORMS_TO_RUN` was never set — the
@@ -1481,3 +1483,9 @@ platform lines above), never appended after "Run it yourself".
   keeps the user on the same screen. Every insertion is counted under
   "Steps auto-supplemented" in the Report, the same field used for
   every other technical/no-business-meaning step addition.
+- The smoke run is on by default now — if it fails and no live
+  device/browser/server was ever reachable this run (Appium/emulator/
+  server connection refused or timed out before any real test step ran),
+  say so plainly in the Report and point the user at `--no-run` for
+  future invocations on this box, instead of only printing a raw runner
+  failure tail that leaves the real cause unclear.
