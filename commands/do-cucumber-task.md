@@ -1450,3 +1450,9 @@ platform lines above), never appended after "Run it yourself".
   marked done from one platform's pass alone if shared code changed
   afterward. Capped at 2 rounds total; still-unstable after that is a
   reported failure, never a silent pass.
+- A synchronization-wait step is only ever inserted when the discovered
+  project already has a real one — never invented — and only after an
+  action that genuinely changes screen state, never after one that
+  keeps the user on the same screen. Every insertion is counted under
+  "Steps auto-supplemented" in the Report, the same field used for
+  every other technical/no-business-meaning step addition.
