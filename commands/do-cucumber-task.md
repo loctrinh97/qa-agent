@@ -1130,6 +1130,25 @@ platform's usage never reduces the other's):
       for the CURRENT platform (merge, never overwrite the whole file),
       retry. This locator's own attempt count goes up by one; so does the
       platform's total.
+
+      **Opportunistic same-screen scan** (live-reground case only, not
+      the `SELECTOR_SOURCE=source` re-read case): the same live dump just
+      fetched already contains every OTHER element currently rendered on
+      this screen. Check every OTHER locator entry belonging to the SAME
+      top-level `$LOCATOR_DIR` namespace as the failing one (e.g. the
+      same `loginPage` object) against that SAME dump — never fetch a
+      new dump, never navigate elsewhere. Only check locators actually
+      PRESENT in the dump; an element not currently rendered (hidden,
+      conditional, behind an unopened modal) is simply not checked, never
+      flagged as broken. Any other same-namespace locator found with a
+      DIFFERENT value than what's currently in `$LOCATOR_DIR` gets
+      merged into the SAME update as the failing locator's own fix — one
+      file write, not a separate one. These opportunistic corrections do
+      NOT count against either heal budget (per-locator 3-cap,
+      per-platform 5-cap) — only the originally-failing locator's own
+      heal does, exactly as before this addition. Record them separately
+      in the Report from the primary heal count (e.g. "N other locator(s)
+      in the same screen corrected opportunistically: <list>").
       - Platform total reaches 5 → stop the whole platform's run
         immediately, regardless of which locator triggered it — no
         budget remains for any locator this run. Print the runner output
