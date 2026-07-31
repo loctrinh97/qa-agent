@@ -373,8 +373,14 @@ step), re-score once, then proceed regardless.
 
 ## Generate the feature file
 
-Write `$FEATURE_DIR/<MODULE>.feature` (using `$FEATURE_DIR` from "Discover
-the test project's real conventions" above):
+Check whether `$FEATURE_DIR/<MODULE>.feature` already exists (`ls
+"$FEATURE_DIR" 2>/dev/null | grep -i "$MODULE"`). Already exists → append
+the new `Scenario:` block under the existing `Feature:` header, merging
+in (never overwriting or rewriting) any existing `Scenario:` blocks —
+same "merge, never overwrite" rule already applied to every other
+generated artifact in this command. Missing → write it fresh
+(`$FEATURE_DIR` from "Discover the test project's real conventions"
+above):
 
 ```gherkin
 # Source: CucumberStudio — <cucumberstudio-url>
