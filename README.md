@@ -87,6 +87,7 @@ CucumberStudio scenario" to "a runnable automated test":
 .claude-plugin/
   plugin.json        — plugin manifest
   marketplace.json    — single-plugin marketplace listing (enables install above)
+CHANGELOG.md           — release history (trigger / change / impact per bump)
 commands/              — the 6 slash commands listed above
 scripts/               — deterministic helper scripts (rename.sh, add-mcp.sh)
 docs/superpowers/

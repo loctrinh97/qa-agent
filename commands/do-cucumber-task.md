@@ -411,57 +411,94 @@ quoted text is UI copy only, verified or explicitly marked unverified.
 
 ### Synchronization waits (anti-flakiness)
 
-Applies only when the discovered project already has a real, existing
-synchronization-wait step (found during "Discover the test project's
-real conventions" or a real step-def file read — e.g. a step like `The
-screen is fully loaded` backed by a real wait-for-load method).
-`CONVENTION=default`, or a discovered project with no such step → this
-entire subsection is a no-op — never invent a wait step that doesn't
-already exist in the project.
+Applies to ALL platforms — frontend, mobile, and backend. Core
+principle: when a generated step must act on or assert something that
+only becomes ready after a transition, wait for it. **Prefer waiting on
+an observable readiness condition when one is available; a
+fixed-duration wait (pause/sleep/`waitForTimeout`) remains a valid,
+allowed fallback when there is no observable condition or no real wait
+primitive to use.** This refines — does not repeal — "never invent a
+wait step that doesn't already exist": see rule 3.
 
-**Trigger — narrowly scoped to avoid step bloat.** Insert the real
-wait step only after an action that genuinely changes screen state:
-a navigation, a login success/redirect, a network call that changes
-what's rendered, or an app dismiss/close/reopen. Never after an action
-that keeps the user on the SAME screen (filling a text field, selecting
-an option, scrolling) — most steps in a typical scenario are this kind
-and must NOT get a wait inserted.
+**Trigger — narrowly scoped to avoid step bloat.** Wait only after a
+step that genuinely changes state and leaves something not-yet-ready:
+a navigation or redirect, a login success, a request/response that
+changes what is rendered or stored, an app dismiss/close/reopen, an
+async job whose result the next step reads. Never after a step that
+leaves things in the SAME state (filling a text field, selecting an
+option, scrolling, building a request body) — most steps in a typical
+scenario are this kind and must NOT get a wait.
 
-1. **Insert before the next verify/tap.** Never let a verify/tap run
-   immediately after a screen-state-changing action (as scoped above).
-2. **Prefer the real wait step over a fixed-duration pause step.** If
-   the project has both, use the wait step. Only fall back to a fixed
-   pause when no wait step exists in the project AND the wait is for a
-   genuinely unavoidable animation — keep it short.
-3. **`@app_reset` (cold-start) scenarios are the riskiest** — apply this
-   strictly right after a login step and right after an app-reopen step;
-   a cold-start login round-trip is slower and more variable than a warm
-   one, and default element-wait timeouts are more likely to be
+1. **Prefer an observable condition over a fixed-duration wait, WHEN
+   one is available.**
+   - *Frontend (Playwright)*: rely on the framework's built-in
+     auto-waiting; where an explicit wait is genuinely needed, express
+     it as a visibility/state assertion or a `waitFor` (e.g.
+     `expect(locator).toBeVisible()`).
+   - *Mobile (Appium/WebdriverIO)*: use a "wait for element
+     `<locator>` to be displayed" step backed by the project's real
+     `waitForDisplayed` primitive.
+   - *Backend*: poll for the real state/response —
+     retry-until-condition with a timeout. (The MailHog "poll every 2s
+     up to 30s" retrieval below is an example of this shape.)
+2. **A fixed-duration wait is still allowed and correct** when there is
+   genuinely no observable condition to wait on, or the project has no
+   real wait primitive to reuse or wrap — e.g. an unavoidable
+   animation/settle, or a transition with no stable element or response
+   to key off. Keep it as short as is reliable. **Never rip out an
+   existing pause just to avoid pauses** — replace one only when a real
+   observable wait is actually available.
+3. **Reuse before adding.** If the project already has a readiness-wait
+   step or helper, use it. If it does NOT, but the project HAS a real
+   underlying wait primitive (a driver `waitForDisplayed` /
+   `waitForSelector`, an assertion helper, a polling util), you MAY add
+   ONE thin, cross-platform binding that delegates to it. Wrapping a
+   real primitive is NOT "inventing" a wait; fabricating a wait with no
+   backing primitive still is — in that case fall back to a fixed pause
+   (rule 2) rather than inventing.
+4. **Never key a wait on a platform-specific signal for cross-platform
+   content** (e.g. an Android-only `clickable` attribute). Choose a
+   condition that holds on every platform the feature runs on, or fall
+   back to a fixed pause.
+5. **Prefer a specific readiness condition** ("this control is
+   present/visible", "this response arrived") over a coarse one
+   ("spinner gone", "page loaded") when the intent is that a specific
+   thing is ready — a preference, not a requirement.
+6. **No redundant blind pause.** Do not emit a fixed pause before an
+   action/assertion whose own step already waits internally (many
+   tap/click/assert steps auto-wait). This is about redundancy, not
+   about banning pauses in general.
+7. **`@app_reset` (cold-start) scenarios are the riskiest** — apply
+   this strictly right after a login step and right after an app-reopen
+   step; a cold-start round-trip is slower and more variable than a
+   warm one, and default element-wait timeouts are more likely to be
    exceeded.
-4. **One-directional internal consistency, never retroactive.** If a NEW
-   scenario being generated performs the same screen-state-changing
-   action as an EXISTING scenario already present in the same feature
-   file that already uses the wait step after it, the new scenario uses
-   it too. Never rewrite or retrofit an existing scenario's content to
-   add this — only new/merged content follows this rule.
-5. **Insert before a negative ("not displayed") assertion that follows a
-   dismissing tap** (Skip/Proceed/close) — the transition must complete
-   before the negative assertion, same as rule 1's general case.
+8. **One-directional internal consistency, never retroactive.** If a
+   NEW scenario being generated performs the same state-changing action
+   as an EXISTING scenario already present in the same feature file
+   that already waits after it, the new scenario waits too. Never
+   rewrite or retrofit an existing scenario's content to add this —
+   only new/merged content follows this rule.
+9. **Wait before a negative ("not displayed"/"absent") assertion that
+   follows a dismissing action** (Skip/Proceed/close/cancel) — the
+   transition must complete before the negative assertion, same as the
+   general case.
 
 **Idempotency**: never insert a duplicate wait — if one already exists
-immediately between the state-changing action and the next verify/tap
-(from the original CucumberStudio wording, a prior merge, or an
-already-present scenario read for rule 4), do not insert a second one.
+immediately between the state-changing action and the next
+verify/action (from the original CucumberStudio wording, a prior merge,
+or an already-present scenario read for rule 8), do not add a second.
 
-**Ambiguity**: the discovered project has more than one candidate wait-
-step name used inconsistently across features → ask the user once which
-to standardize on for this module, same "ask once when ambiguous"
-pattern used elsewhere in this command.
+**Ambiguity**: the discovered project has more than one candidate
+readiness-wait step name used inconsistently across features → ask the
+user once which to standardize on for this module, same "ask once when
+ambiguous" pattern used elsewhere in this command.
 
-Every wait step inserted this way is a technical/no-business-meaning
-addition — list it under "Steps auto-supplemented" in the Report, the
-same field "Automation-only technical preconditions" already populates
-(never a new, separate reporting category).
+Every readiness-wait step or fixed pause added/used this way is a
+technical/no-business-meaning addition — list it under "Steps
+auto-supplemented" in the Report, the same field "Automation-only
+technical preconditions" already populates (never a new, separate
+reporting category).
 
 ## Determine the class name
 
@@ -1477,12 +1514,19 @@ platform lines above), never appended after "Run it yourself".
   marked done from one platform's pass alone if shared code changed
   afterward. Capped at 2 rounds total; still-unstable after that is a
   reported failure, never a silent pass.
-- A synchronization-wait step is only ever inserted when the discovered
-  project already has a real one — never invented — and only after an
-  action that genuinely changes screen state, never after one that
-  keeps the user on the same screen. Every insertion is counted under
-  "Steps auto-supplemented" in the Report, the same field used for
-  every other technical/no-business-meaning step addition.
+- Synchronization waits apply on every platform (frontend, mobile,
+  backend) and only after a step that genuinely changes state and
+  leaves something not-yet-ready — never after one that leaves things
+  in the same state. Prefer an observable readiness condition when one
+  is available; a fixed-duration pause is still valid when there is no
+  observable condition or no real wait primitive to reuse or wrap, and
+  an existing pause is never removed just to avoid pauses. Reuse an
+  existing readiness-wait step, or add at most ONE thin binding that
+  delegates to a real underlying primitive — a wait with no backing
+  primitive is still invented and must not be fabricated. Every wait or
+  pause added/used this way is counted under "Steps auto-supplemented"
+  in the Report, the same field used for every other technical/
+  no-business-meaning step addition.
 - The smoke run is on by default now — if it fails and no live
   device/browser/server was ever reachable this run (Appium/emulator/
   server connection refused or timed out before any real test step ran),
