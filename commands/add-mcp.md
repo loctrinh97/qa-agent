@@ -24,6 +24,14 @@ plugin's own repo.
 - If no argument (or it doesn't match), list the 6 keys and ask the user to
   pick one. Do not guess — wait for their answer.
 
+When listing the 6 keys, use this description for each:
+- `playwright` — Playwright MCP for browser automation, web test execution, and live locator healing during /do-cucumber-task smoke tests
+- `github` — GitHub MCP for repository and PR operations
+- `appium` — Appium MCP for mobile app inspection and live locator healing during /do-cucumber-task smoke tests
+- `azure-devops` — Azure DevOps MCP for boards and pipelines (requires org name)
+- `jira` — Jira/Atlassian MCP for issue tracking
+- `cucumberstudio` — CucumberStudio MCP for scenario fetching (/do-cucumber-task)
+
 ## 2. Collect entry-specific input
 
 - `azure-devops`: ask for the Azure DevOps org name — it becomes `--org
