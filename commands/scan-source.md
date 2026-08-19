@@ -305,8 +305,36 @@ in source" instead of the sections above. Each entry records the real file
 path and line number as the source of truth.
 
 **`.claude/docs/frontend/routes.md`** — real page routes/URL patterns and
-the navigation flow between them, as evidenced by the routing config/code.
-"not determined — no routing code found" if none.
+the navigation flow between them, extracted with router-aware commands:
+
+For React Router / Vue Router:
+```bash
+find "<path>/src" -maxdepth 4 \( -name "*.router.*" -o -name "routes.*" -o -name "App.tsx" -o -name "App.jsx" \) -not -path '*/node_modules/*' 2>/dev/null
+grep -rn '"path":' "<path>/src" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --exclude-dir=node_modules 2>/dev/null | head -30
+```
+
+For Next.js file-based routing:
+```bash
+find "<path>/app" "<path>/src/app" "<path>/pages" "<path>/src/pages" -maxdepth 4 \( -name "page.*" -o -name "index.*" \) 2>/dev/null
+```
+
+Record each route as: URL pattern, the component/page it renders, and the
+real file path. "not determined — no routing code found" if none.
+
+**`.claude/docs/frontend/directory-tree.md`** — the real scanned directory
+structure, depth-limited, excluding common noise dirs. Run:
+
+```bash
+find "<path>" -maxdepth 4 \
+  -not -path '*/node_modules/*' -not -path '*/.git/*' \
+  -not -path '*/dist/*' -not -path '*/.next/*' \
+  -not -path '*/build/*' -not -path '*/.nuxt/*' \
+  -not -path '*/coverage/*' \
+  | sort
+```
+
+Write the raw output as a fenced code block, with a one-line header:
+`Scanned: <path> (maxdepth 4, noise dirs excluded)`
 
 ## Scan and write — mobile
 
