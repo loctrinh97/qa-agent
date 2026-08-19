@@ -533,7 +533,8 @@ from scratch.
   source" — reuse those extracted values directly, never re-open or
   re-read the file.
 - `frontend`/`mobile`, `SELECTOR_SOURCE=scanned` → the already-read content
-  of `.claude/docs/frontend/components.md` or `.claude/docs/mobile/screens.md`.
+  of `.claude/docs/frontend/components.md` or `.claude/docs/frontend/locators.md`
+  (whichever yielded the match) or `.claude/docs/mobile/screens.md`.
 - `frontend`/`mobile`, `SELECTOR_SOURCE=live` → the live Playwright/Appium
   snapshot already captured during "Verify step wording" — reuse it. If
   that session is no longer available (e.g. it timed out before this
@@ -1231,7 +1232,7 @@ platform's usage never reduces the other's):
       per-platform 5-cap) — only the originally-failing locator's own
       heal does, exactly as before this addition. Record them separately
       in the Report from the primary heal count (e.g. "N other locator(s)
-      in the same screen corrected opportunistically: <list>").
+      in the same screen/page corrected opportunistically: <list>").
       - Platform total reaches 5 → stop the whole platform's run
         immediately, regardless of which locator triggered it — no
         budget remains for any locator this run. Print the runner output
@@ -1483,7 +1484,7 @@ TODO stubs remaining: <n> (method/entry/step names listed, or "none")
 Step definitions: <path>
 Steps generated: <n> new / <n> reused (already covered)
 Steps auto-supplemented (technical precondition only): <list, or "none">
-Live-verify (frontend only): <n/n locators matched source | n corrected (list) | n unresolved (list) | skipped — no URL available | skipped — Playwright MCP not found | not applicable (non-frontend)>
+Live-verify (frontend only): <n/n locators matched source | n corrected (list) | n unresolved (list) | skipped — no URL available | skipped — no URL provided | skipped — Playwright MCP not found | not applicable (non-frontend)>
 Smoke run: <not run | passed (n heal attempts: <list>) | failed — <reason: locator cap (3) reached | platform heal-budget (5) exhausted | shared-code bug filed (file:line, @fix_* tag) | hard stop — no source to heal from>: <tail output> | see per-platform breakdown below>
 Opportunistic corrections (same screen/page): <n other locator(s) corrected: <list>, or "none">
 Feature tag: <@disable removed | @disable kept — reason>
