@@ -248,6 +248,62 @@ real file later without re-searching:
 ```
 "not determined — no components found" if none.
 
+Before writing `locators.md`, detect the project's primary locator strategy by counting hits across `src/` (or the project root if no `src/` directory):
+
+```bash
+SRC_DIR=$([ -d "<path>/src" ] && echo "<path>/src" || echo "<path>")
+TESTID_COUNT=$(grep -rE 'data-testid=|data-test=' "$SRC_DIR" --include='*.tsx' --include='*.jsx' --include='*.vue' --include='*.html' --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=build 2>/dev/null | wc -l)
+ARIA_COUNT=$(grep -rE 'aria-label=|role=' "$SRC_DIR" --include='*.tsx' --include='*.jsx' --include='*.vue' --include='*.html' --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=build 2>/dev/null | wc -l)
+ID_COUNT=$(grep -rE 'id="[^"]*"' "$SRC_DIR" --include='*.tsx' --include='*.jsx' --include='*.vue' --include='*.html' --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=build 2>/dev/null | wc -l)
+echo "TESTID=$TESTID_COUNT ARIA=$ARIA_COUNT ID=$ID_COUNT"
+```
+
+Rank strategies by hit count. The highest count becomes `PRIMARY_STRATEGY`. If all are 0, set `PRIMARY_STRATEGY=none` and use the default Playwright priority order.
+
+```bash
+# data-testid / data-test
+grep -rn 'data-testid="[^"]*"\|data-test="[^"]*"' "$SRC_DIR" --include='*.tsx' --include='*.jsx' --include='*.vue' --include='*.html' --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=build 2>/dev/null | head -30
+
+# aria-label / role
+grep -rn 'aria-label="[^"]*"\|role="[^"]*"' "$SRC_DIR" --include='*.tsx' --include='*.jsx' --include='*.vue' --include='*.html' --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=build 2>/dev/null | head -30
+
+# id attributes
+grep -rn 'id="[^"]*"' "$SRC_DIR" --include='*.tsx' --include='*.jsx' --include='*.vue' --include='*.html' --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=build 2>/dev/null | head -30
+
+# CSS class (last resort — only if higher strategies have 0 hits)
+grep -rn 'className="[^"]*"' "$SRC_DIR" --include='*.tsx' --include='*.jsx' --include='*.vue' --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=build 2>/dev/null | head -20
+```
+
+Read 2-3 representative files found by the above to ground real values (not just file paths).
+
+**`.claude/docs/frontend/locators.md`** — a flat catalog of test-automation
+hooks found in the real source, grouped by strategy — not by component (that
+is `components.md`'s job). Write with this structure:
+
+```markdown
+# Frontend Locators
+
+**Primary strategy:** <PRIMARY_STRATEGY> (<N> hits — highest among scanned attributes)
+**Playwright priority order:** getByRole → getByLabel → getByTestId → getByText → CSS
+
+## data-testid (primary / secondary / tertiary — based on hit rank)
+- `<value>` → <element description> — <relative/file/path>:<line>
+
+## aria-label / role (<rank>)
+- `aria-label="<value>"` → <element description> — <relative/file/path>:<line>
+
+## id (<rank>)
+- `id="<value>"` → <element description> — <relative/file/path>:<line>
+
+## CSS selector (last resort)
+- `.<class>` → <element description> — <relative/file/path>:<line>
+```
+
+Omit any section for which no hits were found. If `PRIMARY_STRATEGY=none`
+(no hits for any strategy), write "not determined — no locator hooks found
+in source" instead of the sections above. Each entry records the real file
+path and line number as the source of truth.
+
 **`.claude/docs/frontend/routes.md`** — real page routes/URL patterns and
 the navigation flow between them, as evidenced by the routing config/code.
 "not determined — no routing code found" if none.
@@ -411,6 +467,10 @@ generic description. For every `mobile` path, state `MOBILE_PLATFORM`
 explicitly and confirm `locators.md` and `directory-tree.md` are included
 in the file list (written, or "⊘ Skipped <file> (already exists)" per the
 overwrite/merge/skip choice).
+For every `frontend` path, state `WEB_FRAMEWORK` explicitly and confirm
+`locators.md` and `directory-tree.md` are included in the file list
+(written, or "⊘ Skipped <file> (already exists)" per the overwrite/merge/
+skip choice).
 
 ## Rules
 
