@@ -276,6 +276,17 @@ grep -n "^## frontend — " .claude/CLAUDE.md 2>/dev/null
   - No `OK` (missing/unreadable) → continue to the legacy ask below.
 - No `## frontend — ` entry found → continue to the legacy ask below.
 
+Before falling back to the legacy ask, check for `locators.md` entries for
+this module:
+```bash
+ls .claude/docs/frontend/locators.md 2>/dev/null
+grep -i "$(echo "$MODULE" | tr '-' '.')" .claude/docs/frontend/locators.md 2>/dev/null
+```
+A match found → use the locator entries from `locators.md` for this module
+as the grounding source. Set `SELECTOR_SOURCE=scanned`. Skip the legacy ask
+entirely and proceed to "Verify step wording".
+No match → continue to the legacy ask below.
+
 Legacy ask (only reached when the saved path is missing/unreadable, or the
 user replied `skip` above):
 ```bash
@@ -1090,6 +1101,41 @@ manages their own environment lifecycle across a session of multiple
 `/do-cucumber-task` runs; tearing down here would force an expensive
 re-boot on every next invocation.
 
+## Live-verify locators (frontend)
+
+Skip this entire section when `RUN_FLAG=false`, or `PLATFORM` is not
+`frontend`, or no live URL can be resolved.
+
+Resolve the live URL in this order:
+1. `**Target:**` field in `specs/<NNN>-<MODULE>/spec.md` — read it:
+   ```bash
+   grep "^\*\*Target\*\*:" specs/*-"$MODULE"/spec.md 2>/dev/null | head -1
+   ```
+2. `BASE_URL` environment variable: `echo "${BASE_URL:-}"`.
+3. Ask the user once: "What is the live URL for this module's page?" Wait
+   for reply. A URL given → use it. `skip` replied → skip this section,
+   note "live-verify skipped — no URL provided" in the Report.
+
+If Playwright MCP isn't available (`ToolSearch(query: "playwright")` returns
+nothing) → tell the user to run `/add-mcp playwright` first, or reply
+`skip` to skip this pass. Do not block the run.
+
+**Verify flow** (when URL resolved and Playwright MCP available):
+
+1. Use Playwright MCP to navigate to the resolved live URL.
+2. Dump the DOM snapshot.
+3. For each locator entry in `$LOCATOR_DIR/<MODULE>.locators.ts` just generated:
+   - **Resolves + matches source-grounded value** → no action.
+   - **Resolves + different value than source-grounded** → live value wins.
+     Update that `$LOCATOR_DIR` entry (merge, never overwrite the whole
+     file). Note the correction in the Report. Log to
+     `.claude/docs/known-issues.md` under `## Locator drift` with key
+     `(locator key, frontend)` using the same entry format as the mobile
+     locator-drift logging.
+   - **Doesn't resolve at all** → flag clearly in the Report — this
+     locator will very likely fail the smoke test. Do not retry or heal
+     here; that is the smoke-test heal loop's job.
+
 ## Live-verify locators (mobile cross-platform only)
 
 Skip this entire section when `RUN_FLAG=false`, or `PLATFORMS_TO_RUN` is
@@ -1425,6 +1471,7 @@ TODO stubs remaining: <n> (method/entry/step names listed, or "none")
 Step definitions: <path>
 Steps generated: <n> new / <n> reused (already covered)
 Steps auto-supplemented (technical precondition only): <list, or "none">
+Live-verify (frontend only): <n/n locators matched source | n corrected (list) | n unresolved (list) | skipped — no URL available | skipped — Playwright MCP not found | not applicable (non-frontend)>
 Smoke run: <not run | passed (n heal attempts: <list>) | failed — <reason: locator cap (3) reached | platform heal-budget (5) exhausted | shared-code bug filed (file:line, @fix_* tag) | hard stop — no source to heal from>: <tail output> | see per-platform breakdown below>
 Opportunistic corrections (same screen): <n other locator(s) corrected: <list>, or "none">
 Feature tag: <@disable removed | @disable kept — reason>
