@@ -1246,6 +1246,18 @@ platform's usage never reduces the other's):
       DIFFERENT locator encountered later in the same run — each new
       locator starts its own fresh 3-attempt count; only the shared
       platform total carries forward across all of them.)
+    - `PLATFORM=frontend`, re-grounding via Playwright MCP: check
+      availability first:
+      ```
+      ToolSearch(query: "playwright", max_results: 5)
+      ```
+      No Playwright MCP found → treat as not re-groundable (hard stop for
+      this locator, print runner tail, never guess). Playwright MCP found
+      → navigate to the page for this MODULE using the same live URL
+      resolved in "Live-verify locators (frontend)" above; if that URL is
+      no longer available (session ended), ask once: "What URL should I
+      use to inspect <MODULE>?" No answer → hard stop. URL given →
+      proceed with inspection, update locator, retry.
     - Not re-groundable (no real source to check) → stop the whole
       platform's run immediately (not counted against either budget — a
       hard stop, not a retry), print the runner output tail, leave it to
@@ -1473,7 +1485,7 @@ Steps generated: <n> new / <n> reused (already covered)
 Steps auto-supplemented (technical precondition only): <list, or "none">
 Live-verify (frontend only): <n/n locators matched source | n corrected (list) | n unresolved (list) | skipped — no URL available | skipped — Playwright MCP not found | not applicable (non-frontend)>
 Smoke run: <not run | passed (n heal attempts: <list>) | failed — <reason: locator cap (3) reached | platform heal-budget (5) exhausted | shared-code bug filed (file:line, @fix_* tag) | hard stop — no source to heal from>: <tail output> | see per-platform breakdown below>
-Opportunistic corrections (same screen): <n other locator(s) corrected: <list>, or "none">
+Opportunistic corrections (same screen/page): <n other locator(s) corrected: <list>, or "none">
 Feature tag: <@disable removed | @disable kept — reason>
 Known issues logged: <n> shared-code bug(s) (<list file:line, or "none">), <n> locator drift(s) (<list key, or "none">)
 MailHog OTP: <reused existing helper <path> | scaffolded new (MAILHOG_BASE_URL=<value>) | not applicable>
