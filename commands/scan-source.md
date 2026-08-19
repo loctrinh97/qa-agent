@@ -195,13 +195,41 @@ find "<path>" -maxdepth 2 -iname "*.router.*" -o -iname "routes.*" -o -iname "Ap
 Read 2-3 representative files from any `components/`/`pages/` directory
 found, and any routing config, to ground real components and routes.
 
+After reading `package.json`, detect the specific framework and set `WEB_FRAMEWORK`:
+
+```bash
+cat "<path>/package.json" 2>/dev/null | grep -E '"next"|"react"|"vue"|"nuxt"|"@angular/core"|"svelte"'
+ls "<path>/next.config."* "<path>/nuxt.config."* "<path>/angular.json" "<path>/svelte.config."* 2>/dev/null
+```
+
+Map signals to `WEB_FRAMEWORK` using this priority (first match wins):
+
+| Signal | `WEB_FRAMEWORK` |
+|---|---|
+| `next` dependency or `next.config.*` | `Next.js` |
+| `nuxt` dependency or `nuxt.config.*` | `Nuxt` |
+| `vue` dependency (no nuxt) | `Vue` |
+| `@angular/core` or `angular.json` | `Angular` |
+| `svelte` or `svelte.config.*` | `Svelte` |
+| `react` dependency (no next) | `React` |
+| None of the above | `not determined` |
+
+For Next.js, additionally detect router type:
+```bash
+ls "<path>/app/" "<path>/src/app/" 2>/dev/null
+ls "<path>/pages/" "<path>/src/pages/" 2>/dev/null
+```
+If `app/` or `src/app/` exists → append `(App Router)` to `WEB_FRAMEWORK`. If only `pages/` or `src/pages/` → append `(Pages Router)`.
+
 Write (respecting the overwrite/merge/skip choice from "Check for existing
 content"):
 
-**`.claude/docs/frontend/architecture.md`** — component layers, state-
-management library (if a dependency like `redux`/`zustand`/`pinia`/
-`vuex` is evidenced), routing library, key build tooling (bundler config
-found). "not determined" for anything not evidenced.
+**`.claude/docs/frontend/architecture.md`** — starts with `**Framework:**
+<WEB_FRAMEWORK>` on its own line (modelled on mobile's `**Platform:**`
+line), then: component layers, state-management library (if a dependency
+like `redux`/`zustand`/`pinia`/`vuex` is evidenced), routing library, key
+build tooling (bundler config found). "not determined" for anything not
+evidenced.
 
 **`.claude/docs/frontend/components.md`** — key components found, with
 their real selector attributes as they appear in the code. When an element
@@ -358,6 +386,12 @@ For `mobile` entries specifically, insert one additional line right after
 `**Last scanned:**`:
 ```
 **Platform:** <MOBILE_PLATFORM>
+```
+
+For `frontend` entries specifically, insert one additional line right after
+`**Last scanned:**`:
+```
+**Framework:** <WEB_FRAMEWORK>
 ```
 
 This full template — including the `# Scanned Sources` heading — is only
