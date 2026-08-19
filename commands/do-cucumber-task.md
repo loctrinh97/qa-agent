@@ -1374,7 +1374,7 @@ Record for the Report: whether Round 2 ran, its outcome, and — if the
 ### Logging discoveries to `known-issues.md`
 
 Both a shared-code bug filed via the `a` flow above and a live-verify
-locator drift correction (see "Live-verify locators" above) are logged to
+locator drift correction (see "Live-verify locators (mobile cross-platform only)" and "Live-verify locators (frontend)" above) are logged to
 `.claude/docs/known-issues.md`, immediately at discovery time — not
 batched to Report time.
 
