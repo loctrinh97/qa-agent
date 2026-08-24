@@ -1,7 +1,7 @@
 ---
 name: do-cucumber-task
 description: Fetch one CucumberStudio scenario, ground it against this workspace's spec.md/scanned-source knowledge, verify its wording against real selectors when available, write/update specs/NNN-<module>/spec.md, generate `<module>.feature` at the project's real feature-file location, generate the grounded page object/screen object/API client (plus locators, for frontend/mobile), generate step definitions, and — by default — smoke-test and auto-un-disable the feature. Pass --no-run to skip the smoke test (e.g. no live device/browser/server available).
-argument-hint: "<cucumberstudio-url> [--no-run]"
+argument-hint: "<cucumberstudio-url> [--no-run] [--target <url>]"
 ---
 
 EXECUTE IMMEDIATELY.
@@ -19,10 +19,16 @@ Expected pattern: `https://studio.cucumberstudio.com/projects/<projectId>/test-p
 ```bash
 URL=$(echo "$ARGUMENTS" | awk '{print $1}')
 RUN_FLAG=$(echo "$ARGUMENTS" | grep -qw -- "--no-run" && echo "false" || echo "true")
+TARGET_URL=$(echo "$ARGUMENTS" | grep -oP '(?<=--target )\S+' || echo "")
 PROJECT_ID=$(echo "$URL" | grep -oE 'projects/[0-9]+' | grep -oE '[0-9]+')
 FOLDER_ID=$(echo "$URL" | grep -oE 'folders/[0-9]+' | grep -oE '[0-9]+')
 SCENARIO_ID=$(echo "$URL" | grep -oE 'scenarios/[0-9]+' | grep -oE '[0-9]+')
-echo "PROJECT_ID=$PROJECT_ID FOLDER_ID=$FOLDER_ID SCENARIO_ID=$SCENARIO_ID RUN_FLAG=$RUN_FLAG"
+echo "PROJECT_ID=$PROJECT_ID FOLDER_ID=$FOLDER_ID SCENARIO_ID=$SCENARIO_ID RUN_FLAG=$RUN_FLAG TARGET_URL=$TARGET_URL"
+```
+
+If `TARGET_URL` is non-empty, write it to `.claude/last-target-url` now:
+```bash
+echo "$TARGET_URL" > .claude/last-target-url
 ```
 
 If any of the three IDs is empty, stop with:
@@ -833,14 +839,25 @@ Skip this entire section when `RUN_FLAG=false`, or `PLATFORM` is not
 `frontend`, or no live URL can be resolved.
 
 Resolve the live URL in this order:
-1. `**Target:**` field in `specs/<NNN>-<MODULE>/spec.md` — read it:
+
+1. `--target <url>` flag passed to this run — already in `$TARGET_URL`.
+2. Last-used URL persisted from a previous run:
+   ```bash
+   cat .claude/last-target-url 2>/dev/null
+   ```
+   If the file exists and is non-empty, use its value and inform the user:
+   `"Using last-used URL: <url> — pass --target <url> to override."` Do not ask for confirmation.
+3. `**Target:**` field in `specs/<NNN>-<MODULE>/spec.md` — read it:
    ```bash
    grep "^\*\*Target\*\*:" specs/*-"$MODULE"/spec.md 2>/dev/null | head -1
    ```
-2. `BASE_URL` environment variable: `echo "${BASE_URL:-}"`.
-3. Ask the user once: "What is the live URL for this module's page?" Wait
-   for reply. A URL given → use it. `skip` replied → skip this section,
-   note "live-verify skipped — no URL provided" in the Report.
+4. `BASE_URL` environment variable: `echo "${BASE_URL:-}"`.
+5. Ask the user once: "What is the live URL for this module's page?" Wait
+   for reply. A URL given → use it and write it to `.claude/last-target-url`:
+   ```bash
+   echo "<url>" > .claude/last-target-url
+   ```
+   `skip` replied → skip this section, note "live-verify skipped — no URL provided" in the Report.
 
 If Playwright MCP isn't available (`ToolSearch(query: "playwright")` returns
 nothing) → tell the user to run `/add-mcp playwright` first, or reply
