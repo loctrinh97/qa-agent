@@ -567,414 +567,133 @@ empty/missing, generate fresh using the convention set by "Discover the
 test project's real conventions" above (either the discovered project's
 real shape, or this plugin's default TS scaffold).
 
-## Generate the locator/endpoint file
+## Generate all artifacts
 
-Skip this section for `backend` in the `default` convention — HTTP
-method/path stay inline in the API client (see "Generate the page object /
-screen object / API client" below), no separate locator file. In the
-`discovered` convention, skip it for `backend` too UNLESS discovery found
-a real, separate endpoints/registry file for this project (rare, but if
-one exists, mirror it the same way frontend/mobile locators are mirrored
-below — same "grounded value or explicit TODO marker" rule applies).
+All inputs needed to generate all three files — feature steps, grounded
+selector values, `CONVENTION`, `PLATFORM`, `CLASS`, `MODULE`, `LOCATOR_DIR`,
+`PAGE_DIR`, `STEP_DIR`, `LOCATOR_FORMAT`, `PAGE_EXT`, `STEP_EXT`,
+`STEP_MODULE_SYSTEM`, `CUCUMBER_BINDING` — are already resolved above.
+Do not re-fetch, re-read, or re-open any browser/Appium session here.
 
-Branch on `CONVENTION` (from "Discover the test project's real
-conventions" above):
+### Step A — Plan all content before writing
 
-### `CONVENTION=discovered`
+Before writing any file, determine the full intended content of all three
+artifacts in a single planning pass:
 
-Write (or merge new entries into) the file at `$LOCATOR_DIR` for this
-module, in `$LOCATOR_FORMAT`, mirroring the exact structure of the real
-example file read during discovery (same key naming style, same nesting,
-same file-per-module vs. shared-file pattern as the real example). Apply
-these content rules regardless of format:
-- Selector priority order — frontend/web: `getByRole` → `getByLabel` →
-  `getByTestId` → `getByText` → CSS (last resort). Mobile: `accessibility
-  id` → `UiSelector.text()`/`NSPredicate` → `resourceId`/class chain →
-  `description()` → XPath (last resort).
-- Grounded elements (from the resolved selector source) get a real
-  selector value in whatever shape the discovered format uses (a locator
-  call, a plain string, a JSON value). Ungrounded elements get an explicit
-  marker in that same format instead — never invent a plausible-looking
-  selector. For a JSON locator file (no comment syntax), use a literal
-  string value like `"TODO: unverified — <element description>"` in place
-  of a real selector value.
-- If a file already exists for this module, add new entries for any new
-  element referenced by the feature file; leave existing entries
-  untouched.
+1. **Locator/endpoint file** (`$LOCATOR_DIR/<MODULE>.locators.<ext>`)
+   For each UI element / endpoint referenced by a step in the feature file:
+   - Grounded → real selector value using selector priority order:
+     - `frontend`/web: `getByRole` → `getByLabel` → `getByTestId` → `getByText` → CSS (last resort)
+     - `mobile`: `accessibility id` → `UiSelector.text()`/`NSPredicate` → `resourceId`/class chain → `description()` → XPath (last resort)
+   - Not grounded → explicit TODO marker — never invent a plausible-looking selector:
+     - TS format: `undefined as any, // TODO: unverified — <element description>`
+     - JSON format: `"TODO: unverified — <element description>"`
+   - Skip this file entirely for `backend` + `CONVENTION=default` — HTTP method/path stay inline in the API client.
+   - For `CONVENTION=discovered`: mirror the exact structure of the real example file found during discovery (same key naming style, same nesting, same file-per-module vs. shared-file pattern).
+   - If a file already exists for this module: add new entries only, leave existing entries untouched.
 
-### `CONVENTION=default`
+2. **Page object / screen object / API client** (`$PAGE_DIR/<CLASS>Page.<ext>` or `<CLASS>Screen.<ext>` or `<CLASS>Client.<ext>`)
+   - Methods represent semantic actions/assertions grouping related Gherkin steps — NOT a rigid one-method-per-step-line mapping (exception: backend API clients, one method per endpoint).
+   - Import locators from the locator file planned above — never inline raw selectors.
+   - `CONVENTION=discovered`: mirror the exact shape of the real example file (same base-class/inheritance, same import style, same method/function style, same locator-import pattern).
+   - `CONVENTION=default`:
+     - `frontend`: extend `BasePage` from `pages/BasePage.ts`; all `Locator` properties `readonly`, typed `Locator`; import `get<CLASS>Locators` from `locators/<MODULE>.locators.ts`.
+     - `mobile`: no `page` fixture; element access via WebdriverIO's `$('~...')`; import from `locators/mobile/<MODULE>.locators.ts`.
+     - `backend`: one method per endpoint; path/verb/request shape from `.claude/docs/backend/api-contracts.md`; write `// TODO: endpoint contract not found` instead of inventing a path.
+   - If a file already exists for this module: add new methods only, leave existing methods untouched.
 
-**`frontend`** — write (or merge new entries into) `$LOCATOR_DIR/<MODULE>.locators.ts`:
+3. **Step definitions** (`$STEP_DIR/<MODULE>.steps.<ext>`)
+   For each Given/When/Then step in the feature file:
+   - Already bound in the existing file → skip; leave it untouched.
+   - Not yet bound → generate a new binding that delegates to the page object / screen object / API client method planned above.
+   - Step's locator is a TODO-stub (not grounded) → emit a TODO-stub binding instead:
+     ```javascript
+     Given('...', async () => {
+       throw new Error('TODO: unverified — locator "<key>" not found in <LOCATOR_DIR>/<MODULE>.locators.<ext>. Run /scan-source or ground manually, then re-run /do-cucumber-task.')
+     })
+     ```
+     List this step under "TODO stubs remaining" in the Report.
+   - Step mentions OTP / verification code / email code → apply MailHog OTP retrieval (see subsection below) instead of the locator-lookup flow.
+   - Automation-only technical preconditions (e.g. "Given I am on the Login screen") may be added ONLY when they are pure navigation preconditions with no business meaning. List every auto-supplemented step under "Steps auto-supplemented" in the Report.
+   - `CONVENTION=discovered`: mirror the real step-def file's import style, `$STEP_MODULE_SYSTEM`, function declaration style, `$CUCUMBER_BINDING` syntax, page/screen/client instantiation pattern.
+   - `CONVENTION=default`:
+     - `frontend`/`backend` (`playwright-bdd`):
+       ```typescript
+       import { createBdd } from 'playwright-bdd';
+       import { <CLASS>Page } from '../pages/<CLASS>Page';
+       const { Given, When, Then } = createBdd();
+       Given('<step text>', async ({ page }) => {
+         const <instanceName> = new <CLASS>Page(page);
+         await <instanceName>.<actionMethodName>();
+       });
+       ```
+     - `mobile` (`@wdio/cucumber-framework`):
+       ```typescript
+       import { Given, When, Then } from '@wdio/cucumber-framework';
+       import { <CLASS>Screen } from '../../pages/mobile/<CLASS>Screen';
+       const <instanceName> = new <CLASS>Screen();
+       Given('<step text>', async () => {
+         await <instanceName>.<actionMethodName>();
+       });
+       ```
+   - One binding per step. `{string}` typed `string`; `{int}` typed `number`.
+   - If a step file already exists: add only new bindings, leave existing bindings untouched.
 
-```typescript
-import { Page } from '@playwright/test';
+#### MailHog OTP retrieval (applies when a step mentions OTP / verification code / email code)
 
-export const get<CLASS>Locators = (page: Page) => ({
-  <elementName>: page.<real-locator-call>,
-  // ^ grounded — built from the resolved scanned-docs entry or live snapshot
-  <otherElementName>: undefined as any, // TODO: unverified — <element description>
-});
+Search `$PAGE_DIR` only for an existing method whose name contains both `OTP` and `MailHog`/`Mailhog` (case-insensitive), or a call site matching `/api/v2/search` or `/api/v2/messages` against a host containing `mailhog`:
+
+```bash
+grep -rniE "mailhog" --include="*.js" --include="*.ts" "$PAGE_DIR" 2>/dev/null | grep -iE "otp|api/v2"
 ```
 
-Selector priority order: `getByRole` → `getByLabel` → `getByTestId` →
-`getByText` → CSS (last resort). One entry per UI element referenced by a
-step in `$FEATURE_DIR/<MODULE>.feature`. Grounded elements get a real
-locator call; ungrounded elements get a `// TODO: unverified —
-<description>` comment instead — never invent a plausible-looking
-selector.
+- Exactly one match → reuse it: wire the step definition to call that existing method directly. Never generate a duplicate.
+- More than one match → ask the user which one to wire to.
+- No match → scaffold new:
+  1. **Resolve `MAILHOG_BASE_URL`**: check the project's shared config file. Not found → ask the user once; write it into that config file so future runs never ask again.
+  2. **API client method**: `GET ${MAILHOG_BASE_URL}/api/v2/search?kind=to&query=<real recipient email>` — recipient email from real test data/fixtures/scenario content, never invented.
+  3. **Extraction method**: sort matching items by timestamp descending; take the newest; extract OTP via `\b\d{6}\b` against `Content.Body` (adjust regex if the scenario's wording implies a different code shape).
+  4. **Step definition**: wording `"I get OTP code from mailhog and assign to {string}"` — calls the extraction method, sets the Gherkin variable using the existing variable-assignment convention.
+  5. **Retry/timing**: poll every 2 seconds, up to 30 seconds total; failure = real reported failure, never a guessed OTP.
 
-**`mobile`** — write (or merge new entries into) `$LOCATOR_DIR/<MODULE>.locators.ts`:
+Record for the Report: existing helper reused (and its path) or new one scaffolded (and `MAILHOG_BASE_URL` used).
 
-```typescript
-export const get<CLASS>Locators = () => ({
-  <elementName>: '~<real-accessibility-id>',
-  // ^ grounded — Android/iOS accessibility id from scanned docs or live inspection
-  <otherElementName>: '', // TODO: unverified — <element description>
-});
-```
+#### Cross-platform locator-key parity check (mobile, discovered convention only)
 
-Android/iOS priority order: `accessibility id` →
-`UiSelector.text()`/`NSPredicate` → `resourceId`/class chain →
-`description()` → XPath (last resort).
-
-If a locators file already exists for this module, add new entries for any
-new element referenced by the feature file; leave existing entries
-untouched.
-
-### Cross-platform locator-key parity check (mobile, discovered convention only)
-
-Applies only when ALL of: `PLATFORM=mobile`, `CONVENTION=discovered`, and
-`$LOCATOR_DIR` contains exactly 2 files whose names contain `android` and
-`ios` (case-insensitive) — the platform-split signal. In every other case
-(frontend, backend, default convention, a single combined mobile file,
-more/fewer than 2 matching files), skip this subsection entirely — no
-prompt, no Report line beyond "not applicable".
+Applies ONLY when all three conditions hold: `PLATFORM=mobile`, `CONVENTION=discovered`, and `$LOCATOR_DIR` contains exactly 2 files whose names contain `android` and `ios` (case-insensitive). Skip entirely in every other case.
 
 ```bash
 ls "$LOCATOR_DIR" | grep -i "android"
 ls "$LOCATOR_DIR" | grep -i "ios"
 ```
 
-3+ files match this naming pattern (e.g. a stray backup file) → ambiguous
-which 2 are the real pair, skip this subsection entirely rather than
-guessing.
+3+ files match → ambiguous; skip rather than guess. Read the current module's key set from both files and diff:
+- Key in both → no action.
+- Key in only one → ask: `"<key>" exists only in <platform>.json for this module — intentional (platform-specific element), or did generation miss the other platform?` Wait for reply.
+  - Intentional → record as deliberate platform-only key. No write.
+  - Missing → generate the entry for the missing platform using the same sourcing rules (real grounded value or `"TODO: unverified — <element description>"` marker — never invent).
+  - Ambiguous/declined → ask once more; still ambiguous → record as unresolved platform-specific in the Report.
 
-Read the current module's key set from both files (everything nested
-under the module's own top-level key, e.g. `loginPage`, in both files —
-not just the keys added in this run, so a pre-existing asymmetry from an
-earlier session is also caught) and diff them.
+### Step B — Write all three files in parallel
 
-- A key present in both → no output, no prompt.
-- A key present in only one → ask immediately: `"<key>" exists only in
-  <platform>.json for this module — is that intentional (platform-
-  specific element), or did generation miss the other platform?` Wait for
-  the reply.
-  - Intentional → record as a deliberate platform-only key. No file
-    write.
-  - Missing → generate the entry for the missing platform now, using the
-    exact same sourcing rules as above (a real grounded value from the
-    resolved selector source if available, else the same `"TODO:
-    unverified — <element description>"` marker — never invent a
-    plausible-looking selector). Merge it into that file (never overwrite
-    the whole file).
-  - Reply is ambiguous or declined → ask once more; still ambiguous →
-    record it as unresolved platform-specific and note the ambiguity in
-    the Report, rather than writing an unsolicited entry.
-- Never re-ask about a key that already exists in both files with the
-  same name — this check is purely about asymmetry, not selector-value
-  correctness.
+Issue write operations for all three files simultaneously (parallel tool calls). Use the content planned in Step A verbatim — no re-derivation at write time.
 
-## Generate the page object / screen object / API client
+Files to write in parallel:
+- `$LOCATOR_DIR/<MODULE>.locators.<ext>` (skip for `backend` + `CONVENTION=default`)
+- `$PAGE_DIR/<CLASS>Page.<ext>` (or `<CLASS>Screen.<ext>` / `<CLASS>Client.<ext>`)
+- `$STEP_DIR/<MODULE>.steps.<ext>`
 
-Branch on `CONVENTION` (from "Discover the test project's real
-conventions" above):
+Merge rules apply: if a file already exists for this module, add new entries/methods/bindings only; leave all existing content untouched.
 
-### `CONVENTION=discovered`
+### Step C — Sanity check
 
-Write (or merge new methods into) the file at `$PAGE_DIR` for this module,
-using `$PAGE_EXT`, mirroring the exact shape of the real example file read
-during discovery: same base-class/inheritance pattern (or lack of one) if
-the example extends something, same import style, same method/function
-style (class methods vs. plain exported functions — follow what's real),
-same locator-import pattern (import from `$LOCATOR_DIR`, never inline a
-raw selector directly here regardless of language). Apply these content
-rules regardless of language:
-- Methods represent a semantic action or assertion, grouping the Gherkin
-  step(s) that describe it — NOT a rigid one-method-per-step-line mapping
-  (backend/API calls are the exception: one method per endpoint, since
-  that's already a natural 1:1 unit).
-- If the file already exists for this module, add new methods for any new
-  Gherkin step/endpoint; leave existing methods untouched.
-
-### `CONVENTION=default`
-
-**`frontend`** — write (or merge new methods into) `pages/<CLASS>Page.ts`:
-
-```typescript
-import { Page, Locator, expect } from '@playwright/test';
-import { BasePage } from './BasePage';
-import { get<CLASS>Locators } from '../locators/<MODULE>.locators';
-
-export class <CLASS>Page extends BasePage {
-  readonly <elementName>: Locator;
-
-  constructor(page: Page) {
-    super(page);
-    const loc = get<CLASS>Locators(page);
-    this.<elementName> = loc.<elementName>;
-  }
-
-  async <actionMethodName>(/* params from the Gherkin step(s) */): Promise<void> {
-    // implementation using this.<elementName>
-  }
-
-  async expect<AssertionName>(/* params */): Promise<void> {
-    // assertion using this.<elementName> and expect()
-  }
-}
-```
-
-Rules:
-- Extend `BasePage` from `pages/BasePage.ts`.
-- Import locators from `locators/<MODULE>.locators.ts` — never inline a raw
-  selector directly in the page object.
-- Methods represent a semantic action or assertion, grouping the Gherkin
-  step(s) that describe it — NOT a rigid one-method-per-step-line mapping.
-  (e.g. a single `login(email, password)` method may implement "When I
-  enter my email" + "And I enter my password" + "And I click Sign In" if
-  the feature phrases login across separate steps.)
-- All `Locator` properties `readonly`, typed `Locator`.
-- If the page object already exists for this module, add new methods for
-  any new Gherkin step; leave existing methods untouched.
-
-**`mobile`** — write (or merge new methods into) `pages/mobile/<CLASS>Screen.ts`:
-
-```typescript
-import { get<CLASS>Locators } from '../../locators/mobile/<MODULE>.locators';
-
-export class <CLASS>Screen {
-  private readonly locators = get<CLASS>Locators();
-
-  async <actionMethodName>(/* params */): Promise<void> {
-    // implementation using $(this.locators.<elementName>)
-  }
-
-  async expect<AssertionName>(/* params */): Promise<void> {
-    // assertion using expect($(this.locators.<elementName>))
-  }
-}
-```
-
-Same grouping rule as frontend — one method per semantic action/assertion,
-not per literal step line. No `page` fixture; element access is
-WebdriverIO's `$('~...')` built from the locator factory above. If the
-screen object already exists for this module, add new methods for any new
-step; leave existing methods untouched.
-
-**`backend`** — write (or merge new methods into) `api-clients/<CLASS>Client.ts`:
-
-```typescript
-import { APIRequestContext, APIResponse } from '@playwright/test';
-
-export class <CLASS>Client {
-  constructor(private readonly request: APIRequestContext) {}
-
-  async <endpointMethodName>(/* params from the request shape */): Promise<APIResponse> {
-    return this.request.<get|post|put|delete>('<real-path-from-api-contracts.md>', {
-      data: { /* real request shape, if any */ },
-    });
-  }
-}
-```
-
-Unlike UI actions, one endpoint call is already a natural 1:1 unit with a
-Gherkin step — one method per endpoint referenced by the feature's steps.
-Method name/HTTP verb/path/request shape come from the grounded source
-(`.claude/docs/backend/api-contracts.md` or `spec.md`); when no concrete
-endpoint shape is available for a referenced call, write the method with
-`// TODO: endpoint contract not found — verify against real backend code`
-instead of inventing a plausible-looking path. If the client already
-exists for this module, add new methods for any new endpoint; leave
-existing methods untouched.
-
-## Generate step definitions
-
-For each Given/When/Then line in `$FEATURE_DIR/<MODULE>.feature` (from
-"Generate the feature file"), normalize `{string}`/`{int}` placeholders
-the same way Cucumber does, then check `$STEP_DIR` for an existing file
-covering this module:
+After all three files are written, run a single syntax check covering all generated TypeScript files:
 
 ```bash
-ls "$STEP_DIR" 2>/dev/null | grep -i "$CLASS"
+[ "$STEP_EXT" = "ts" ] && npx tsc --noEmit "$LOCATOR_DIR/<MODULE>.locators.ts" "$PAGE_DIR/<CLASS>Page.ts" "$STEP_DIR/<MODULE>.steps.ts" || node --check "$STEP_DIR/<MODULE>.steps.ts"
 ```
 
-- A matching file exists → read it. A step already bound there → skip it,
-  leave the existing binding untouched. Only steps NOT already bound are
-  generated below.
-- No matching file, or it exists but doesn't cover a given step → generate
-  a binding for it, per "Sourcing each binding" below.
-
-### Automation-only technical preconditions (narrow exception)
-
-CucumberStudio scenarios are sometimes written for manual testing and may
-omit a precondition a human tester does implicitly (e.g. "Given I am on
-the Login screen" before a data-entry step). You may add such a step ONLY
-when it is a pure technical/navigation precondition carrying no new
-business meaning — never a new or reworded Given/When/Then with
-acceptance-criteria significance. List every step added this way under
-"Steps auto-supplemented" in the Report. This is the one narrow, always-
-reported exception to "never invent scenario steps" (see Rules).
-
-### Sourcing each binding
-
-A step whose real wording mentions OTP / verification code / email code is
-sourced differently — see "MailHog OTP retrieval" below instead of the
-locator-lookup flow that follows.
-
-For each element/action a step references, look up the entry in
-`$LOCATOR_DIR` (written in "Generate the locator/endpoint file"):
-
-- **Grounded** (a real selector value, not a `TODO: unverified` marker)
-  → write a binding that delegates to the page object / screen object /
-  API client method generated in "Generate the page object / screen
-  object / API client" for that element/action. Never inline a raw
-  selector in the step body.
-- **Not grounded** (missing entry, or still a TODO-stub) → the binding
-  cannot be honestly written. Emit a TODO-stub binding instead —
-  syntactically valid, but it throws a descriptive error instead of doing
-  anything:
-
-```javascript
-Given('...', async () => {
-  throw new Error('TODO: unverified — locator "<key>" not found in <LOCATOR_DIR>/<MODULE>.locators.<ext>. Run /scan-source or ground manually, then re-run /do-cucumber-task.')
-})
-```
-List this step under "TODO stubs remaining" in the Report — the same
-field Phase C already populates for locators; step-def stubs are added to
-that same list, not a separate one.
-
-### MailHog OTP retrieval
-
-Applies only when a step's real CucumberStudio wording mentions OTP /
-verification code / email code — no inference beyond that wording.
-
-**Search for an existing helper first.** Search `$PAGE_DIR` only (the
-reusable method layer — never `$STEP_DIR`: an existing step binding there
-is tied to its own exact step text and is already handled by "Generate
-step definitions"'s outer already-bound check above, not a candidate
-"helper to reuse" for a NEW step with different wording; including
-`$STEP_DIR` here would surface that binding's own call site as a false
-second match every time one already exists, exactly what happens against
-this repo's own `sample/infinity-mobile-test-automation` project) for a
-method whose name contains both `OTP` and `MailHog`/`Mailhog`
-(case-insensitive), or a call site matching a MailHog API path
-(`/api/v2/search` or `/api/v2/messages` against a host containing
-`mailhog`):
-```bash
-grep -rniE "mailhog" --include="*.js" --include="*.ts" "$PAGE_DIR" 2>/dev/null | grep -iE "otp|api/v2"
-```
-- **Exactly one match** → reuse it: wire the new step definition to call
-  that existing method directly. Never generate a new API client method,
-  extraction method, or duplicate step — this is the same "never
-  duplicate, always reuse" rule already applied to locators and step
-  bindings elsewhere in this command.
-- **More than one match** (ambiguous which to reuse) → ask the user which
-  one to wire the new step to, same "ask once when ambiguous" pattern used
-  elsewhere in this command.
-- **No match** → scaffold new, below.
-
-**Scaffolding new** (only when nothing to reuse):
-
-1. **Resolve `MAILHOG_BASE_URL`**: check the project's existing shared
-   config file (the same file conventions like `${AUTH0_BASE_URL}` already
-   live in) for a `MAILHOG_BASE_URL` entry. Not found → ask the user once
-   ("What is this project's MailHog base URL?"), write it into that same
-   config file so a later run in the same project never asks again.
-2. **API client method** — `GET ${MAILHOG_BASE_URL}/api/v2/search?kind=to&query=<real recipient email>`.
-   The recipient email must come from real test data/fixtures/scenario
-   content — never invent it, same grounding rule as everything else this
-   command generates.
-3. **Extraction method** — from the search response, sort matching items
-   by timestamp descending (never assume the API's return order is
-   already sorted — MailHog does not expire old messages, so a stale
-   match from an earlier test run may otherwise be picked by mistake),
-   take the newest, extract the OTP via `\b\d{6}\b` against
-   `Content.Body` (a 6-digit numeric code is the default OTP shape — if
-   the scenario's real wording implies a different code shape, ground the
-   regex in that wording instead).
-4. **Step definition** — `"I get OTP code from mailhog and assign to
-   {string}"` (the real wording already found in use in this codebase's
-   MailHog convention) — calls the extraction method, sets the Gherkin
-   variable using the same variable-assignment convention already used by
-   other step bindings in this project.
-
-**Retry/timing**: MailHog may not have received the email yet at query
-time. Poll every 2 seconds, up to 30 seconds total, before treating it as
-"no matching email found" — a real, reported failure, never a guessed
-OTP.
-
-Record for the Report: whether an existing helper was reused (and its
-path) or a new one was scaffolded (and the `MAILHOG_BASE_URL` used).
-
-### Format
-
-Branch on `CONVENTION` (from "Discover the test project's real
-conventions"):
-
-**`CONVENTION=discovered`** — mirror the real step-def file read during
-discovery: same import style, same `$STEP_MODULE_SYSTEM` (`require` vs
-`import`), same function declaration style (arrow vs `async function`),
-same `$CUCUMBER_BINDING` syntax, same page/screen/client instantiation
-pattern.
-
-**`CONVENTION=default`**:
-
-`frontend`/`backend` (`playwright-bdd`) — write (or merge new bindings
-into) `$STEP_DIR/<MODULE>.steps.ts`:
-
-```typescript
-import { createBdd } from 'playwright-bdd';
-import { <CLASS>Page } from '../pages/<CLASS>Page';
-
-const { Given, When, Then } = createBdd();
-
-Given('<step text>', async ({ page }) => {
-  const <instanceName> = new <CLASS>Page(page);
-  await <instanceName>.<actionMethodName>();
-});
-```
-
-`mobile` (`@wdio/cucumber-framework`) — write (or merge new bindings
-into) `$STEP_DIR/<MODULE>.steps.ts`:
-
-```typescript
-import { Given, When, Then } from '@wdio/cucumber-framework';
-import { <CLASS>Screen } from '../../pages/mobile/<CLASS>Screen';
-
-const <instanceName> = new <CLASS>Screen();
-
-Given('<step text>', async () => {
-  await <instanceName>.<actionMethodName>();
-});
-```
-
-One binding per step. String parameters use `{string}`, typed `string`;
-int parameters use `{int}`, typed `number`.
-
-### Merge
-
-If `$STEP_DIR/<module>Steps.<ext>` (or the real discovered naming
-convention) already exists, add only the new bindings identified above;
-leave every existing binding untouched.
-
-### Sanity check
-
-After writing, set `STEP_FILE` to the file just written/merged, then run:
-```bash
-[ "$STEP_EXT" = "ts" ] && npx tsc --noEmit "$STEP_FILE" || node --check "$STEP_FILE"
-```
-A parse error → fix it now, re-run the check until it's clean, before
-ending this section.
+A parse error in any file → fix it now, re-run the check until all three are clean before ending this section.
 
 ## Discover the real test-run command
 
