@@ -687,10 +687,16 @@ Merge rules apply: if a file already exists for this module, add new entries/met
 
 ### Step C — Sanity check
 
-After all three files are written, run a single syntax check covering all generated TypeScript files:
+After all three files are written, run a single syntax check covering all generated TypeScript files.
 
+First resolve `PAGE_FILE` from `$PLATFORM`:
+- `frontend` → `$PAGE_DIR/<CLASS>Page.ts`
+- `mobile` → `$PAGE_DIR/<CLASS>Screen.ts`
+- `backend` → `$PAGE_DIR/<CLASS>Client.ts`
+
+Then run:
 ```bash
-[ "$STEP_EXT" = "ts" ] && npx tsc --noEmit "$LOCATOR_DIR/<MODULE>.locators.ts" "$PAGE_DIR/<CLASS>Page.ts" "$STEP_DIR/<MODULE>.steps.ts" || node --check "$STEP_DIR/<MODULE>.steps.ts"
+[ "$STEP_EXT" = "ts" ] && npx tsc --noEmit "$LOCATOR_DIR/<MODULE>.locators.ts" "$PAGE_FILE" "$STEP_DIR/<MODULE>.steps.ts" || node --check "$STEP_DIR/<MODULE>.steps.ts"
 ```
 
 A parse error in any file → fix it now, re-run the check until all three are clean before ending this section.
