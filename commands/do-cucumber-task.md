@@ -19,7 +19,7 @@ Expected pattern: `https://studio.cucumberstudio.com/projects/<projectId>/test-p
 ```bash
 URL=$(echo "$ARGUMENTS" | awk '{print $1}')
 RUN_FLAG=$(echo "$ARGUMENTS" | grep -qw -- "--no-run" && echo "false" || echo "true")
-TARGET_URL=$(echo "$ARGUMENTS" | grep -oP '(?<=--target )\S+' || echo "")
+TARGET_URL=$(echo "$ARGUMENTS" | grep -oE -- '--target [^ ]+' | awk '{print $2}')
 PROJECT_ID=$(echo "$URL" | grep -oE 'projects/[0-9]+' | grep -oE '[0-9]+')
 FOLDER_ID=$(echo "$URL" | grep -oE 'folders/[0-9]+' | grep -oE '[0-9]+')
 SCENARIO_ID=$(echo "$URL" | grep -oE 'scenarios/[0-9]+' | grep -oE '[0-9]+')
@@ -28,7 +28,7 @@ echo "PROJECT_ID=$PROJECT_ID FOLDER_ID=$FOLDER_ID SCENARIO_ID=$SCENARIO_ID RUN_F
 
 If `TARGET_URL` is non-empty, write it to `.claude/last-target-url` now:
 ```bash
-echo "$TARGET_URL" > .claude/last-target-url
+[ -n "$TARGET_URL" ] && echo "$TARGET_URL" > .claude/last-target-url
 ```
 
 If any of the three IDs is empty, stop with:
@@ -853,10 +853,12 @@ Resolve the live URL in this order:
    ```
 4. `BASE_URL` environment variable: `echo "${BASE_URL:-}"`.
 5. Ask the user once: "What is the live URL for this module's page?" Wait
-   for reply. A URL given → use it and write it to `.claude/last-target-url`:
+   for reply. A URL given → set `LIVE_URL` to that value, write it to
+   `.claude/last-target-url` for future runs:
    ```bash
-   echo "<url>" > .claude/last-target-url
+   echo "$LIVE_URL" > .claude/last-target-url
    ```
+   Then use `LIVE_URL` as the resolved URL for this section.
    `skip` replied → skip this section, note "live-verify skipped — no URL provided" in the Report.
 
 If Playwright MCP isn't available (`ToolSearch(query: "playwright")` returns
