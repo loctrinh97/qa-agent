@@ -127,6 +127,66 @@ text).
   it. If they confirm the original URL is right, stop — there's nothing to
   generate from an empty scenario.
 
+## Read scenario from local feature file
+
+Skip this section when `INPUT_MODE=cucumberstudio` — it only runs when
+`INPUT_MODE=local-feature`.
+
+Using `FEATURE_FILE_PATH` and `SELECTED_SCENARIO_INDEX` (set in "Parse
+input"), extract the scenario at that 1-based position from the file:
+
+1. Re-read the file:
+   ```bash
+   cat "$FEATURE_FILE_PATH"
+   ```
+2. Locate the `SELECTED_SCENARIO_INDEX`-th `Scenario:` or
+   `Scenario Outline:` block (counting from 1 in file order).
+3. Set:
+   - `SCENARIO_TITLE` — the text after `Scenario:` or `Scenario Outline:` (trimmed).
+   - `SCENARIO_STEPS` — the ordered list of Given/When/Then lines in that block, trimmed of leading whitespace and tags. Preserve `And` / `But` step lines as-is.
+   - `SOURCE_URL` — set to the relative file path: `$FEATURE_FILE_PATH` (e.g. `src/features/Admin/Worksite.feature`). This replaces the CucumberStudio URL in every `# Source:` comment written by downstream sections.
+   - `FOLDER_TITLE` — already set in "Parse input" from the `Feature:` line; do not overwrite it here.
+
+From this point forward, the pipeline runs identically to the
+CucumberStudio flow:
+
+- "Determine the module name" — derives `MODULE` from `SCENARIO_TITLE`.
+- "Determine the platform" — unchanged.
+- "Discover the test project's real conventions" — unchanged.
+- "Resolve the grounding/selector source" — unchanged.
+- "Verify step wording" — unchanged (uses `SCENARIO_STEPS`).
+- "Write/update spec.md" — unchanged (uses `SOURCE_URL` in the Source field).
+- "Generate the feature file" — uses `SOURCE_URL` instead of the
+  CucumberStudio URL in the `# Source:` comment. The scenario block is
+  NOT re-written to the source `.feature` file — that file already
+  contains it. The generated feature file at `$FEATURE_DIR/<MODULE>.feature`
+  is a separate artifact (the project's real runner-facing file).
+- "Generate all artifacts" — unchanged.
+- "Run smoke test" — unchanged.
+- "Auto-un-disable the feature" — after a successful smoke test, remove
+  the `@disable` tag from the SELECTED scenario in `FEATURE_FILE_PATH`
+  (the local source file), not from `$FEATURE_DIR/<MODULE>.feature`.
+  Search for `@disable` anywhere in the tag block before the selected
+  `Scenario:` line (real `.feature` files often have multiple tags spread
+  across multiple lines before a scenario). If the selected scenario had
+  no `@disable` tag (status was `unbound`), skip the tag-removal step —
+  there is nothing to remove.
+
+### Loop to next scenario (when SELECTED_INDICES has remaining items)
+
+After completing the full pipeline for the current scenario (including
+the smoke test and auto-un-disable), check whether `SELECTED_INDICES`
+has more indices remaining:
+
+- **Yes** → set `SELECTED_SCENARIO_INDEX` to the next index, print:
+  ```
+  ── Completed: <SCENARIO_TITLE> ──
+  Moving to next selected scenario (<next title>)...
+  ```
+  Then re-enter the pipeline from "Read scenario from local feature file"
+  with the new index. Do not re-show the menu.
+- **No** → print the final Report and exit normally.
+
 ## Determine the module name
 
 Derive a candidate module name from the scenario's title or its parent
