@@ -58,7 +58,7 @@ Read the full file. Extract:
 
 For each scenario, classify its status:
 
-1. **`@disable`** — the scenario has a `@disable` tag on the line immediately above its `Scenario:` line.
+1. **`@disable`** — the scenario has a `@disable` tag **anywhere in the contiguous tag block** before its `Scenario:` or `Scenario Outline:` line (i.e., any `@`-prefixed line(s) appearing with no blank lines between them and the `Scenario:` keyword).
 2. **`unbound`** — no `@disable` tag, but at least one of its Given/When/Then step texts has no matching binding in `$STEP_DIR`. To check:
    ```bash
    # Discover STEP_DIR from the project conventions (same as "Discover the test project's real conventions")
@@ -91,7 +91,7 @@ Wait for the user's reply. Parse the reply:
 - `"all-pending"` → set `SELECTED_INDICES` to the ordered list of every scenario classified `@disable` or `unbound`.
 - A number, comma-separated list, or range → resolve to an ordered list of 1-based indices. Any index out of range → stop: `Invalid selection: <input>. Valid range: 1–<N>.`
 
-Set `SELECTED_SCENARIO_INDEX` to the FIRST index in `SELECTED_INDICES`. The command implements one scenario per run of the pipeline below; after completing it, loop back to this menu for the next index in `SELECTED_INDICES` (if any remain), without re-scanning the file.
+Set `SELECTED_SCENARIO_INDEX` to the FIRST index in `SELECTED_INDICES`. The command implements one scenario per run of the pipeline below; after completing it, proceed to the next index in `SELECTED_INDICES` via the Loop section in 'Read scenario from local feature file', without re-showing the menu and without re-scanning the file.
 
 Skip "Resolve the CucumberStudio MCP tool" and "Fetch the scenario" entirely — jump directly to "Read scenario from local feature file" (the new section inserted after "Fetch the scenario").
 
@@ -123,7 +123,7 @@ text).
   Given/When/Then steps here directly?" Wait for the reply.
 - Scenario has no steps / empty content → report this, ask the user to
   confirm the URL is correct. Wait for the reply. If they confirm a
-  different/corrected URL, restart from "Parse the CucumberStudio URL" with
+  different/corrected URL, restart from "Parse input — CucumberStudio URL or local feature file" with
   it. If they confirm the original URL is right, stop — there's nothing to
   generate from an empty scenario.
 
@@ -467,7 +467,7 @@ Write (or update) `specs/<NNN>-<MODULE>/spec.md` with this structure:
 # Spec: <MODULE>
 
 **Status**: Draft
-**Source**: CucumberStudio — [<scenario title>](<cucumberstudio-url>)
+**Source**: <when INPUT_MODE=local-feature: the relative file path from SOURCE_URL; when INPUT_MODE=cucumberstudio: `CucumberStudio — [<scenario title>](<cucumberstudio-url>)`>
 **Source Last Synced**: <ISO timestamp>
 **Platform**: <PLATFORM>
 **Target**: <live URL if resolved, else "not yet provided">
@@ -490,7 +490,7 @@ Write (or update) `specs/<NNN>-<MODULE>/spec.md` with this structure:
 
 ## Prompt History
 
-- <ISO timestamp> — Generated from CucumberStudio scenario via /do-cucumber-task
+- <ISO timestamp> — Generated from <when INPUT_MODE=local-feature: `local feature file: <SOURCE_URL>`; when INPUT_MODE=cucumberstudio: `CucumberStudio scenario`> via /do-cucumber-task
 ```
 
 ## Validate the spec (5-dimension rubric)
@@ -521,7 +521,7 @@ generated artifact in this command. Missing → write it fresh
 above):
 
 ```gherkin
-# Source: CucumberStudio — <cucumberstudio-url>
+# Source: <SOURCE_URL>
 <UNVERIFIED-MARKER-LINE-IF-APPLICABLE>
 
 Feature: <scenario/folder title>
