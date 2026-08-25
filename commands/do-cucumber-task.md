@@ -1,7 +1,7 @@
 ---
 name: do-cucumber-task
-description: Fetch one CucumberStudio scenario, ground it against this workspace's spec.md/scanned-source knowledge, verify its wording against real selectors when available, write/update specs/NNN-<module>/spec.md, generate `<module>.feature` at the project's real feature-file location, generate the grounded page object/screen object/API client (plus locators, for frontend/mobile), generate step definitions, and — by default — smoke-test and auto-un-disable the feature. Pass --no-run to skip the smoke test (e.g. no live device/browser/server available).
-argument-hint: "<cucumberstudio-url> [--no-run] [--target <url>]"
+description: Implement a test scenario from a CucumberStudio URL or a local .feature file. Grounds the scenario against the workspace's spec.md/scanned-source knowledge, generates the spec, feature file, page object/screen object/API client, locators, and step definitions, then smoke-tests and auto-un-disables. When given a .feature file, scans all scenarios and shows a numbered menu so the tester picks which pending ones to implement. Pass --no-run to skip the smoke test.
+argument-hint: "<cucumberstudio-url | path/to/file.feature> [--no-run] [--target <url>]"
 ---
 
 EXECUTE IMMEDIATELY.
@@ -12,27 +12,88 @@ for frontend/mobile), and step definitions underneath it. By default, it
 also smoke-tests the freshly-generated feature and removes the @disable
 tag when it's genuinely ready — pass --no-run to skip the smoke test.
 
-## Parse the CucumberStudio URL
-
-Expected pattern: `https://studio.cucumberstudio.com/projects/<projectId>/test-plan/folders/<folderId>/scenarios/<scenarioId>`
+## Parse input — CucumberStudio URL or local feature file
 
 ```bash
-URL=$(echo "$ARGUMENTS" | awk '{print $1}')
+FIRST_ARG=$(echo "$ARGUMENTS" | awk '{print $1}')
 RUN_FLAG=$(echo "$ARGUMENTS" | grep -qw -- "--no-run" && echo "false" || echo "true")
 TARGET_URL=$(echo "$ARGUMENTS" | grep -oE -- '--target [^ ]+' | awk '{print $2}')
-PROJECT_ID=$(echo "$URL" | grep -oE 'projects/[0-9]+' | grep -oE '[0-9]+')
-FOLDER_ID=$(echo "$URL" | grep -oE 'folders/[0-9]+' | grep -oE '[0-9]+')
-SCENARIO_ID=$(echo "$URL" | grep -oE 'scenarios/[0-9]+' | grep -oE '[0-9]+')
-echo "PROJECT_ID=$PROJECT_ID FOLDER_ID=$FOLDER_ID SCENARIO_ID=$SCENARIO_ID RUN_FLAG=$RUN_FLAG TARGET_URL=$TARGET_URL"
-```
-
-If `TARGET_URL` is non-empty, write it to `.claude/last-target-url` now:
-```bash
 [ -n "$TARGET_URL" ] && echo "$TARGET_URL" > .claude/last-target-url
 ```
 
-If any of the three IDs is empty, stop with:
-`This doesn't look like a CucumberStudio scenario URL. Expected: https://studio.cucumberstudio.com/projects/<id>/test-plan/folders/<id>/scenarios/<id>`
+Determine `INPUT_MODE`:
+
+- `FIRST_ARG` starts with `https://` → `INPUT_MODE=cucumberstudio`. Continue to
+  "Resolve the CucumberStudio MCP tool" exactly as before:
+  ```bash
+  URL="$FIRST_ARG"
+  PROJECT_ID=$(echo "$URL" | grep -oE 'projects/[0-9]+' | grep -oE '[0-9]+')
+  FOLDER_ID=$(echo "$URL" | grep -oE 'folders/[0-9]+' | grep -oE '[0-9]+')
+  SCENARIO_ID=$(echo "$URL" | grep -oE 'scenarios/[0-9]+' | grep -oE '[0-9]+')
+  echo "INPUT_MODE=cucumberstudio PROJECT_ID=$PROJECT_ID FOLDER_ID=$FOLDER_ID SCENARIO_ID=$SCENARIO_ID"
+  ```
+  If any ID is empty, stop: `This doesn't look like a CucumberStudio scenario URL. Expected: https://studio.cucumberstudio.com/projects/<id>/test-plan/folders/<id>/scenarios/<id>`
+
+- `FIRST_ARG` ends with `.feature` (case-insensitive) OR starts with `/`, `./`, or `../` → `INPUT_MODE=local-feature`. Set:
+  ```bash
+  FEATURE_FILE_PATH="$FIRST_ARG"
+  echo "INPUT_MODE=local-feature FEATURE_FILE_PATH=$FEATURE_FILE_PATH"
+  ```
+  Then immediately run the local feature file scan below.
+
+- Neither → stop with:
+  `Unrecognised input: "${FIRST_ARG}". Pass a CucumberStudio URL (https://studio.cucumberstudio.com/...) or a path to a local .feature file (e.g. src/features/Login.feature).`
+
+### Local feature file scan (only when INPUT_MODE=local-feature)
+
+Verify the file exists and is readable:
+```bash
+cat "$FEATURE_FILE_PATH" 2>/dev/null | head -5
+```
+File missing or unreadable → stop: `Cannot read feature file: ${FEATURE_FILE_PATH}. Check the path and try again.`
+
+Read the full file. Extract:
+- `FOLDER_TITLE` — the text after `Feature:` on the `Feature:` line (trimmed).
+- The ordered list of all `Scenario:` and `Scenario Outline:` blocks, each with its title and its full step list.
+
+For each scenario, classify its status:
+
+1. **`@disable`** — the scenario has a `@disable` tag on the line immediately above its `Scenario:` line.
+2. **`unbound`** — no `@disable` tag, but at least one of its Given/When/Then step texts has no matching binding in `$STEP_DIR`. To check:
+   ```bash
+   # Discover STEP_DIR from the project conventions (same as "Discover the test project's real conventions")
+   # Then for each step text <STEP>:
+   grep -rF "<STEP>" "$STEP_DIR" 2>/dev/null | wc -l
+   ```
+   A count of 0 for any step → scenario is `unbound`.
+3. **`done`** — has no `@disable` tag and every step has at least one binding in `$STEP_DIR`.
+
+Print the scenario menu:
+
+```
+Feature: <FOLDER_TITLE>
+Found <N> scenario(s) in <FEATURE_FILE_PATH>:
+
+[1] @disable  | <Scenario title>
+[2] unbound   | <Scenario title>  (N step(s) missing binding)
+[3] ✓ done    | <Scenario title>
+...
+
+Select which to implement:
+  • A number or range      (e.g. "1", "2,4", "1-3")
+  • "all-pending"          implement every @disable and unbound scenario in order
+  • "skip"                 exit without changes
+```
+
+Wait for the user's reply. Parse the reply:
+
+- `"skip"` or empty → exit. Print: `No changes made.`
+- `"all-pending"` → set `SELECTED_INDICES` to the ordered list of every scenario classified `@disable` or `unbound`.
+- A number, comma-separated list, or range → resolve to an ordered list of 1-based indices. Any index out of range → stop: `Invalid selection: <input>. Valid range: 1–<N>.`
+
+Set `SELECTED_SCENARIO_INDEX` to the FIRST index in `SELECTED_INDICES`. The command implements one scenario per run of the pipeline below; after completing it, loop back to this menu for the next index in `SELECTED_INDICES` (if any remain), without re-scanning the file.
+
+Skip "Resolve the CucumberStudio MCP tool" and "Fetch the scenario" entirely — jump directly to "Read scenario from local feature file" (the new section inserted after "Fetch the scenario").
 
 ## Resolve the CucumberStudio MCP tool
 
